@@ -47,20 +47,12 @@ const PICK_LABELS = {
   wildcard: { label: 'Wildcard',       cls: 'label-wildcard' },
 };
 
-function Poster({ poster, title, bg }) {
-  const [failed, setFailed] = useState(false);
-  return (
-    <>
-      <div className={`poster-ph ${bg}`}>{title?.charAt(0)}</div>
-      {poster && !failed && (
-        <img src={`${TMDB}${poster}`} alt={title} className="poster-img"
-          onError={() => setFailed(true)}
-          style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover' }} />
-      )}
-    </>
-  );
-}
-
+<div className="poster-tl">
+  {pick.platform && <span className="platform-badge">{pick.platform}</span>}
+  {pick.letterboxd && <span className="bdg bdg-lb">↑ Letterboxd</span>}
+  {pick.rating >= 8.3 && <span className="bdg bdg-top">Top rated</span>}
+</div>
+   
 function FredCard({ msg, onSave }) {
   const [posterFailed, setPosterFailed] = useState(false);
   const bg = bgClass(msg.title);
