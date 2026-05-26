@@ -37,7 +37,7 @@ const I = {
   Send:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>,
   X:        () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   Movie:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/></svg>,
-  Menu:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
+  Home:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
   Chat:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
 };
 
@@ -74,7 +74,7 @@ function FredCard({ msg, onSave }) {
             {msg.poster && !posterFailed && (
               <img src={`${TMDB}${msg.poster}`} alt={msg.title}
                 onError={() => setPosterFailed(true)}
-                style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', borderRadius:'4px' }} />
+                style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', borderRadius:'4px 4px 0 0' }} />
             )}
             <div className="fred-pick-grad" />
             <div className="fred-pick-title-ov">{msg.title}</div>
@@ -82,8 +82,7 @@ function FredCard({ msg, onSave }) {
           <div className="fred-pick-footer">
             <div className="fred-pick-meta">{msg.meta}</div>
             <button className="fred-save-btn" onClick={() => onSave(msg)}>
-              <I.Bookmark />
-              <span>Save</span>
+              <I.Bookmark /><span>Save</span>
             </button>
           </div>
         </div>
@@ -92,8 +91,35 @@ function FredCard({ msg, onSave }) {
   );
 }
 
+// ── INTRO SCREEN ──────────────────────────────
+function Intro({ onDone }) {
+  const [phase, setPhase] = useState(0);
+  // phase 0: logo fades in
+  // phase 1: tagline fades in
+  // phase 2: everything fades out → done
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase(1), 800);
+    const t2 = setTimeout(() => setPhase(2), 2200);
+    const t3 = setTimeout(() => onDone(), 2900);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [onDone]);
+
+  return (
+    <div className="intro-screen" style={{ opacity: phase === 2 ? 0 : 1 }}>
+      <div className="intro-logo" style={{ opacity: phase >= 0 ? 1 : 0, transform: phase >= 0 ? 'translateY(0)' : 'translateY(16px)' }}>
+        Fred
+      </div>
+      <div className="intro-tagline" style={{ opacity: phase >= 1 ? 1 : 0 }}>
+        Your film friend
+      </div>
+    </div>
+  );
+}
+
 export default function Fred() {
-  const [screen,      setScreen]      = useState('tonight');
+  const [showIntro,   setShowIntro]   = useState(true);
+  const [screen,      setScreen]      = useState('taste');
   const [platforms,   setPlatforms]   = useState(DEFAULT_PLATFORMS);
   const [moods,       setMoods]       = useState(DEFAULT_MOODS);
   const [picks,       setPicks]       = useState([]);
@@ -119,12 +145,14 @@ export default function Fred() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchPicks(DEFAULT_PLATFORMS, DEFAULT_MOODS); }, [fetchPicks]);
-
   function go(name) { setScreen(name); }
   function togglePlatform(p) { setPlatforms(prev => prev.includes(p) ? prev.filter(x=>x!==p) : [...prev,p]); }
   function toggleMood(m)     { setMoods(prev => prev.includes(m) ? prev.filter(x=>x!==m) : [...prev,m]); }
-  function loadPicks()       { go('tonight'); fetchPicks(platforms, moods); }
+
+  function loadPicks() {
+    go('tonight');
+    fetchPicks(platforms, moods);
+  }
 
   function saveToStack(pick) {
     const id = pick.id || pick.title;
@@ -162,11 +190,8 @@ export default function Fred() {
         const updated = [...prev];
         const idx = updated.findLastIndex(m => m.thinking);
         if (idx !== -1) updated[idx] = { role:'fred', thinking:false,
-          text:  data.text  || data.error || "Fred couldn't connect.",
-          title: data.title || '',
-          meta:  data.meta  || '',
-          poster: data.poster || null,
-        };
+          text: data.text || data.error || "Fred couldn't connect.",
+          title: data.title || '', meta: data.meta || '', poster: data.poster || null };
         return updated;
       });
     } catch {
@@ -182,11 +207,13 @@ export default function Fred() {
     }
   }
 
+  if (showIntro) return <Intro onDone={() => setShowIntro(false)} />;
+
   return (
     <div className="app">
 
-      {/* SETUP */}
-      <div className={`screen ${screen==='setup'?'active':''}`}>
+      {/* ── TASTE (ex-Setup) ── */}
+      <div className={`screen ${screen==='taste'?'active':''}`}>
         <div className="setup-wrap">
           <div className="logo">Fred</div>
           <div className="logo-sub">Your film friend</div>
@@ -202,7 +229,7 @@ export default function Fred() {
         </div>
       </div>
 
-      {/* TONIGHT */}
+      {/* ── TONIGHT ── */}
       <div className={`screen ${screen==='tonight'?'active':''}`}>
         <div className="t-hdr">
           <div className="screen-title">Tonight</div>
@@ -246,7 +273,7 @@ export default function Fred() {
         </div>
       </div>
 
-      {/* ASK FRED */}
+      {/* ── ASK FRED ── */}
       <div className={`screen ${screen==='ask'?'active':''}`} style={{paddingBottom:'130px'}} ref={chatRef}>
         <div className="a-hdr">
           <div className="screen-title">Ask Fred</div>
@@ -281,7 +308,7 @@ export default function Fred() {
         </div>
       </div>
 
-      {/* STACK */}
+      {/* ── STACK ── */}
       <div className={`screen ${screen==='stack'?'active':''}`}>
         <div className="st-hdr">
           <div className="screen-title">Your Stack</div>
@@ -305,9 +332,9 @@ export default function Fred() {
         </div>
       </div>
 
-      {/* NAV */}
+      {/* ── NAV ── */}
       <nav className="nav">
-        <button className={`nv ${screen==='setup'?'active':''}`}   onClick={()=>go('setup')}>  <I.Menu/>     Setup   </button>
+        <button className={`nv ${screen==='taste'?'active':''}`}   onClick={()=>go('taste')}>  <I.Home/>     </button>
         <button className={`nv ${screen==='tonight'?'active':''}`} onClick={()=>go('tonight')}><I.Movie/>    Tonight </button>
         <button className={`nv ${screen==='ask'?'active':''}`}     onClick={()=>go('ask')}>    <I.Chat/>     Ask Fred</button>
         <button className={`nv ${screen==='stack'?'active':''}`}   onClick={()=>go('stack')}>  <I.Bookmark/> Stack   </button>
