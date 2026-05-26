@@ -252,7 +252,7 @@ export default function Fred() {
                     <div className="poster-grad"/>
                     <div className="poster-title-ov">{pick.title}</div>
                     <div className="poster-tl">
-            {pick.platform && <span className="platform-badge">{pick.platform}</span>}
+                      {pick.platform && <span className="platform-badge">{pick.platform}</span>}
                       {pick.letterboxd && <span className="bdg bdg-lb">↑ Letterboxd</span>}
                       {pick.rating >= 8.3 && <span className="bdg bdg-top">Top rated</span>}
                     </div>
