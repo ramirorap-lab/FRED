@@ -18,6 +18,10 @@ const MOODS = [
   { label: 'Award-winning', value: 'award' },
 ];
 
+function stripMd(text) {
+  return (text || '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1');
+}
+
 function bgClass(title) {
   const l = (title || 'S').charAt(0).toLowerCase();
   const m = {a:'bg-a',b:'bg-b',c:'bg-c',d:'bg-d',e:'bg-e',f:'bg-f',g:'bg-g',
@@ -38,7 +42,7 @@ const I = {
 };
 
 const PICK_LABELS = {
-  safe:     { label: "Fred's pick",   cls: 'label-safe' },
+  safe:     { label: "Fred's pick",    cls: 'label-safe' },
   stretch:  { label: 'Worth the risk', cls: 'label-stretch' },
   wildcard: { label: 'Wildcard',       cls: 'label-wildcard' },
 };
@@ -49,36 +53,61 @@ function Poster({ poster, title, bg }) {
     <>
       <div className={`poster-ph ${bg}`}>{title?.charAt(0)}</div>
       {poster && !failed && (
-        <img
-          src={`${TMDB}${poster}`}
-          alt={title}
-          className="poster-img"
+        <img src={`${TMDB}${poster}`} alt={title} className="poster-img"
           onError={() => setFailed(true)}
-          style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover' }}
-        />
+          style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover' }} />
       )}
     </>
   );
 }
 
+function FredCard({ msg, onSave }) {
+  const [posterFailed, setPosterFailed] = useState(false);
+  const bg = bgClass(msg.title);
+  return (
+    <div className="fred-bubble">
+      <div className="fred-text">"{stripMd(msg.text)}"</div>
+      {msg.title && (
+        <div className="fred-pick-card">
+          <div className={`fred-pick-poster ${bg}`}>
+            <div className="fred-pick-ph">{msg.title.charAt(0)}</div>
+            {msg.poster && !posterFailed && (
+              <img src={`${TMDB}${msg.poster}`} alt={msg.title}
+                onError={() => setPosterFailed(true)}
+                style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', borderRadius:'4px' }} />
+            )}
+            <div className="fred-pick-grad" />
+            <div className="fred-pick-title-ov">{msg.title}</div>
+          </div>
+          <div className="fred-pick-footer">
+            <div className="fred-pick-meta">{msg.meta}</div>
+            <button className="fred-save-btn" onClick={() => onSave(msg)}>
+              <I.Bookmark />
+              <span>Save</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Fred() {
-  const [screen,    setScreen]    = useState('tonight');
-  const [platforms, setPlatforms] = useState(DEFAULT_PLATFORMS);
-  const [moods,     setMoods]     = useState(DEFAULT_MOODS);
-  const [picks,     setPicks]     = useState([]);
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState('');
-  const [stack,     setStack]     = useState([]);
-  const [messages,  setMessages]  = useState([]);
-  const [chatInput, setChatInput] = useState('');
+  const [screen,      setScreen]      = useState('tonight');
+  const [platforms,   setPlatforms]   = useState(DEFAULT_PLATFORMS);
+  const [moods,       setMoods]       = useState(DEFAULT_MOODS);
+  const [picks,       setPicks]       = useState([]);
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState('');
+  const [stack,       setStack]       = useState([]);
+  const [messages,    setMessages]    = useState([]);
+  const [chatInput,   setChatInput]   = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const chatRef = useRef(null);
 
   const fetchPicks = useCallback(async (plats, mds) => {
     if (!plats.length) return;
-    setLoading(true);
-    setError('');
-    setPicks([]);
+    setLoading(true); setError(''); setPicks([]);
     try {
       const params = new URLSearchParams({ platforms: plats.join(','), moods: mds.join(',') });
       const res  = await fetch(`/api/picks?${params}`);
@@ -87,165 +116,126 @@ export default function Fred() {
       setPicks(data.picks || []);
     } catch (e) {
       setError(e.message || "Fred couldn't connect. Try again.");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    fetchPicks(DEFAULT_PLATFORMS, DEFAULT_MOODS);
-  }, [fetchPicks]);
+  useEffect(() => { fetchPicks(DEFAULT_PLATFORMS, DEFAULT_MOODS); }, [fetchPicks]);
 
   function go(name) { setScreen(name); }
-
-  function togglePlatform(p) {
-    setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
-  }
-  function toggleMood(m) {
-    setMoods(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
-  }
-
-  function loadPicks() {
-    go('tonight');
-    fetchPicks(platforms, moods);
-  }
+  function togglePlatform(p) { setPlatforms(prev => prev.includes(p) ? prev.filter(x=>x!==p) : [...prev,p]); }
+  function toggleMood(m)     { setMoods(prev => prev.includes(m) ? prev.filter(x=>x!==m) : [...prev,m]); }
+  function loadPicks()       { go('tonight'); fetchPicks(platforms, moods); }
 
   function saveToStack(pick) {
-    if (stack.find(s => s.id === pick.id)) return;
-    setStack(prev => [...prev, pick]);
+    const id = pick.id || pick.title;
+    if (stack.find(s => s.id === id)) return;
+    setStack(prev => [...prev, { ...pick, id }]);
   }
-  function removeFromStack(id) {
-    setStack(prev => prev.filter(s => s.id !== id));
+  function removeFromStack(id) { setStack(prev => prev.filter(s => s.id !== id)); }
+
+  function saveFredPick(msg) {
+    saveToStack({
+      id: `ask-${msg.title}`,
+      title: msg.title,
+      platform: msg.meta?.split(' · ')[0] || '',
+      runtime:  msg.meta?.split(' · ')[1] || '',
+      type: msg.meta?.toLowerCase().includes('series') ? 'series' : 'movie',
+      poster: msg.poster || null,
+    });
   }
 
   async function sendChat(text) {
     const t = (text || chatInput).trim();
     if (!t || chatLoading) return;
     setChatInput('');
-
-    // Add user message immediately
-    setMessages(prev => [...prev, { role: 'user', text: t }]);
+    setMessages(prev => [...prev, { role:'user', text:t }]);
     setChatLoading(true);
-
-    // Add thinking placeholder
-    setMessages(prev => [...prev, { role: 'fred', thinking: true, text: '', title: '', meta: '' }]);
-
+    setMessages(prev => [...prev, { role:'fred', thinking:true }]);
     try {
       const res = await fetch('/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: t, platforms, moods }),
+        body: JSON.stringify({ message:t, platforms, moods }),
       });
       const data = await res.json();
-
-      // Replace thinking placeholder with real response
       setMessages(prev => {
         const updated = [...prev];
-        const thinkingIdx = updated.findLastIndex(m => m.thinking);
-        if (thinkingIdx !== -1) {
-          updated[thinkingIdx] = {
-            role: 'fred',
-            text: data.text || data.error || "Fred couldn't connect. Try again.",
-            title: data.title || '',
-            meta: data.meta || '',
-            thinking: false,
-          };
-        }
+        const idx = updated.findLastIndex(m => m.thinking);
+        if (idx !== -1) updated[idx] = { role:'fred', thinking:false,
+          text:  data.text  || data.error || "Fred couldn't connect.",
+          title: data.title || '',
+          meta:  data.meta  || '',
+          poster: data.poster || null,
+        };
         return updated;
       });
     } catch {
       setMessages(prev => {
         const updated = [...prev];
-        const thinkingIdx = updated.findLastIndex(m => m.thinking);
-        if (thinkingIdx !== -1) {
-          updated[thinkingIdx] = { role: 'fred', text: "Fred couldn't connect. Try again.", title: '', meta: '', thinking: false };
-        }
+        const idx = updated.findLastIndex(m => m.thinking);
+        if (idx !== -1) updated[idx] = { role:'fred', thinking:false, text:"Fred couldn't connect. Try again.", title:'', meta:'' };
         return updated;
       });
     } finally {
       setChatLoading(false);
-      setTimeout(() => {
-        chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: 'smooth' });
-      }, 120);
+      setTimeout(() => chatRef.current?.scrollTo({ top:chatRef.current.scrollHeight, behavior:'smooth' }), 120);
     }
   }
 
   return (
     <div className="app">
 
-      {/* ── SETUP ── */}
-      <div className={`screen ${screen === 'setup' ? 'active' : ''}`}>
+      {/* SETUP */}
+      <div className={`screen ${screen==='setup'?'active':''}`}>
         <div className="setup-wrap">
           <div className="logo">Fred</div>
           <div className="logo-sub">Your film friend</div>
           <div className="sec-label">Your platforms</div>
           <div className="chips">
-            {PLATFORMS.map(p => (
-              <div key={p} className={`chip ${platforms.includes(p) ? 'on' : ''}`}
-                onClick={() => togglePlatform(p)}>{p}</div>
-            ))}
+            {PLATFORMS.map(p => <div key={p} className={`chip ${platforms.includes(p)?'on':''}`} onClick={()=>togglePlatform(p)}>{p}</div>)}
           </div>
           <div className="sec-label">Tonight's mood</div>
           <div className="chips">
-            {MOODS.map(m => (
-              <div key={m.value} className={`chip ${moods.includes(m.value) ? 'on' : ''}`}
-                onClick={() => toggleMood(m.value)}>{m.label}</div>
-            ))}
+            {MOODS.map(m => <div key={m.value} className={`chip ${moods.includes(m.value)?'on':''}`} onClick={()=>toggleMood(m.value)}>{m.label}</div>)}
           </div>
-          <button className="cta" onClick={loadPicks}>
-            Fred, show me tonight's picks
-          </button>
+          <button className="cta" onClick={loadPicks}>Fred, show me tonight's picks</button>
         </div>
       </div>
 
-      {/* ── TONIGHT ── */}
-      <div className={`screen ${screen === 'tonight' ? 'active' : ''}`}>
+      {/* TONIGHT */}
+      <div className={`screen ${screen==='tonight'?'active':''}`}>
         <div className="t-hdr">
           <div className="screen-title">Tonight</div>
           <div className="screen-sub">2 films · 1 series · curated for you</div>
         </div>
         <div className="picks-wrap">
-          {loading && (
-            <div className="loading"><div className="spinner" /><div className="load-txt">Fred is thinking…</div></div>
-          )}
-          {!loading && error && (
-            <div className="err-txt">{error}<br/><br/>
-              <button className="cta" style={{fontSize:'14px',padding:'12px'}} onClick={loadPicks}>Try again</button>
-            </div>
-          )}
-          {!loading && !error && picks.length === 0 && (
-            <div className="loading"><div className="load-txt">No picks found — try different platforms or mood.</div></div>
-          )}
-          {!loading && picks.map((pick) => {
+          {loading && <div className="loading"><div className="spinner"/><div className="load-txt">Fred is thinking…</div></div>}
+          {!loading && error && <div className="err-txt">{error}<br/><br/><button className="cta" style={{fontSize:'14px',padding:'12px'}} onClick={loadPicks}>Try again</button></div>}
+          {!loading && !error && picks.length===0 && <div className="loading"><div className="load-txt">No picks found — try different platforms or mood.</div></div>}
+          {!loading && picks.map(pick => {
             const lbl = PICK_LABELS[pick.pick_type] || PICK_LABELS.safe;
             const bg  = bgClass(pick.title);
-            const metaParts = [pick.year, pick.runtime,
-              pick.type === 'series' ? 'Series' : 'Film', pick.platform].filter(Boolean);
+            const metaParts = [pick.year, pick.runtime, pick.type==='series'?'Series':'Film', pick.platform].filter(Boolean);
             return (
               <div key={pick.id}>
                 <div className={`pick-label ${lbl.cls}`}>{lbl.label}</div>
                 <div className="card">
                   <div className={`poster-wrap ${bg}`}>
                     <Poster poster={pick.poster} title={pick.title} bg={bg} />
-                    <div className="poster-grad" />
+                    <div className="poster-grad"/>
                     <div className="poster-title-ov">{pick.title}</div>
                     <div className="poster-tl">
                       {pick.letterboxd && <span className="bdg bdg-lb">↑ Letterboxd</span>}
                       {pick.rating >= 8.3 && <span className="bdg bdg-top">Top rated</span>}
                     </div>
-                    {pick.rating && (
-                      <div className="poster-score">
-                        <div className="score-n">{Number(pick.rating).toFixed(1)}</div>
-                        <div className="score-l">IMDB</div>
-                      </div>
-                    )}
+                    {pick.rating && <div className="poster-score"><div className="score-n">{Number(pick.rating).toFixed(1)}</div><div className="score-l">IMDB</div></div>}
                   </div>
                   <div className="card-body">
                     <div className="card-meta">{metaParts.join(' · ')}</div>
                     {pick.fred_note && <div className="card-note">"{pick.fred_note}"</div>}
                   </div>
                   <div className="card-actions">
-                    <button className="ca sv" onClick={() => saveToStack(pick)}><I.Bookmark /> Save</button>
+                    <button className="ca sv" onClick={()=>saveToStack(pick)}><I.Bookmark /> Save</button>
                     <button className="ca" onClick={loadPicks}><I.Refresh /> More</button>
                     <button className="ca"><I.External /> Open</button>
                   </div>
@@ -256,115 +246,71 @@ export default function Fred() {
         </div>
       </div>
 
-      {/* ── ASK FRED ── */}
-      <div className={`screen ${screen === 'ask' ? 'active' : ''}`}
-        style={{ paddingBottom: '140px' }} ref={chatRef}>
+      {/* ASK FRED */}
+      <div className={`screen ${screen==='ask'?'active':''}`} style={{paddingBottom:'130px'}} ref={chatRef}>
         <div className="a-hdr">
           <div className="screen-title">Ask Fred</div>
           <div className="a-sub">What do you feel like?</div>
         </div>
         <div className="prompt-chips">
-          {['Smart but not depressing','Under 45 minutes','Like The Bear but calmer',"I'm exhausted, easy pick"].map(p => (
-            <div key={p} className="pc" onClick={() => sendChat(p)}>{p}</div>
+          {['Smart but not depressing','Under 45 minutes','Like The Bear but calmer',"I'm exhausted, easy pick"].map(p=>(
+            <div key={p} className="pc" onClick={()=>sendChat(p)}>{p}</div>
           ))}
         </div>
         <div className="chat-area">
-          {messages.map((msg, i) => (
+          {messages.map((msg,i) => (
             <div key={i}>
-              {msg.role === 'user' && (
-                <div className="user-msg-wrap">
-                  <span className="user-msg">{msg.text}</span>
-                </div>
-              )}
-              {msg.role === 'fred' && (
-                <div className="fred-bubble">
-                  {msg.thinking ? (
+              {msg.role==='user' && <div className="user-msg-wrap"><span className="user-msg">{msg.text}</span></div>}
+              {msg.role==='fred' && (
+                msg.thinking ? (
+                  <div className="fred-bubble">
                     <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-                      <div className="spinner" style={{width:'18px',height:'18px',borderWidth:'1.5px'}}/>
-                      <span style={{fontSize:'12px',color:'var(--dim)',letterSpacing:'.08em',textTransform:'uppercase'}}>Fred is thinking…</span>
+                      <div className="spinner" style={{width:'16px',height:'16px',borderWidth:'1.5px'}}/>
+                      <span style={{fontSize:'11px',color:'var(--dim)',letterSpacing:'.1em',textTransform:'uppercase'}}>Fred is thinking…</span>
                     </div>
-                  ) : (
-                    <>
-                      <div className="fred-text">"{msg.text}"</div>
-                      {msg.title && (
-                        <div className="resp-mini">
-                          <div className={`resp-ph ${bgClass(msg.title)}`}>{msg.title.charAt(0)}</div>
-                          <div className="resp-info">
-                            <div className="resp-title">{msg.title}</div>
-                            <div className="resp-meta">{msg.meta}</div>
-                          </div>
-                        </div>
-                      )}
-                      <div className="resp-actions">
-                        <button className="rb p"
-                          onClick={() => msg.title && saveToStack({
-                            id: `ask-${i}`, title: msg.title,
-                            platform: msg.meta?.split(' · ')[0] || '',
-                            runtime: msg.meta?.split(' · ')[1] || '',
-                            type: msg.meta?.toLowerCase().includes('series') ? 'series' : 'movie',
-                            poster: null,
-                          })}>
-                          <I.Bookmark /> Save
-                        </button>
-                        <button className="rb s"
-                          onClick={() => setMessages(prev => prev.filter((_,j) => j!==i && j!==i-1))}>
-                          Ask again
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
+                  </div>
+                ) : <FredCard msg={msg} onSave={saveFredPick} />
               )}
             </div>
           ))}
         </div>
         <div className="chat-bar">
-          <input className="ci" value={chatInput}
-            onChange={e => setChatInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && sendChat()}
-            placeholder="Ask Fred something specific…"
-            disabled={chatLoading}
-          />
-          <button className="cs" onClick={() => sendChat()} disabled={chatLoading}><I.Send /></button>
+          <input className="ci" value={chatInput} onChange={e=>setChatInput(e.target.value)}
+            onKeyDown={e=>e.key==='Enter'&&sendChat()} placeholder="Ask Fred something specific…" disabled={chatLoading}/>
+          <button className="cs" onClick={()=>sendChat()} disabled={chatLoading}><I.Send /></button>
         </div>
       </div>
 
-      {/* ── STACK ── */}
-      <div className={`screen ${screen === 'stack' ? 'active' : ''}`}>
+      {/* STACK */}
+      <div className={`screen ${screen==='stack'?'active':''}`}>
         <div className="st-hdr">
           <div className="screen-title">Your Stack</div>
           <div className="a-sub" style={{marginTop:'4px'}}>Stuff you actually meant to watch.</div>
         </div>
         <div className="st-list">
-          {stack.length === 0 ? (
-            <div className="empty">
-              <div className="empty-icon"><I.Bookmark /></div>
-              <div className="empty-text">Nothing saved yet.<br />Save picks from Tonight or Ask Fred.</div>
-            </div>
-          ) : stack.map(item => (
+          {stack.length===0 ? (
+            <div className="empty"><div className="empty-icon"><I.Bookmark /></div><div className="empty-text">Nothing saved yet.<br/>Save picks from Tonight or Ask Fred.</div></div>
+          ) : stack.map(item=>(
             <div className="si" key={item.id}>
-              {item.poster
-                ? <img src={`${TMDB}${item.poster}`} alt={item.title} className="si-img"
-                    onError={e => { e.target.style.display='none'; }} />
-                : <div className={`si-ph ${bgClass(item.title)}`}>{item.title?.charAt(0)}</div>
-              }
+              {item.poster ? <img src={`${TMDB}${item.poster}`} alt={item.title} className="si-img" onError={e=>{e.target.style.display='none';}}/>
+                : <div className={`si-ph ${bgClass(item.title)}`}>{item.title?.charAt(0)}</div>}
               <div className="si-info">
-                <div className="si-type">{item.type === 'series' ? 'Series' : 'Film'}</div>
+                <div className="si-type">{item.type==='series'?'Series':'Film'}</div>
                 <div className="si-title">{item.title}</div>
                 <div className="si-meta">{item.platform} · {item.runtime}</div>
               </div>
-              <button className="si-rm" onClick={() => removeFromStack(item.id)}><I.X /></button>
+              <button className="si-rm" onClick={()=>removeFromStack(item.id)}><I.X /></button>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── NAV ── */}
+      {/* NAV */}
       <nav className="nav">
-        <button className={`nv ${screen==='setup'   ?'active':''}`} onClick={()=>go('setup')}><I.Menu /> Setup</button>
-        <button className={`nv ${screen==='tonight' ?'active':''}`} onClick={()=>go('tonight')}><I.Movie /> Tonight</button>
-        <button className={`nv ${screen==='ask'     ?'active':''}`} onClick={()=>go('ask')}><I.Chat /> Ask Fred</button>
-        <button className={`nv ${screen==='stack'   ?'active':''}`} onClick={()=>go('stack')}><I.Bookmark /> Stack</button>
+        <button className={`nv ${screen==='setup'?'active':''}`}   onClick={()=>go('setup')}>  <I.Menu/>     Setup   </button>
+        <button className={`nv ${screen==='tonight'?'active':''}`} onClick={()=>go('tonight')}><I.Movie/>    Tonight </button>
+        <button className={`nv ${screen==='ask'?'active':''}`}     onClick={()=>go('ask')}>    <I.Chat/>     Ask Fred</button>
+        <button className={`nv ${screen==='stack'?'active':''}`}   onClick={()=>go('stack')}>  <I.Bookmark/> Stack   </button>
       </nav>
     </div>
   );
