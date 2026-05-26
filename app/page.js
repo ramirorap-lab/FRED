@@ -46,8 +46,8 @@ const PICK_LABELS = {
   stretch:  { label: 'Worth the risk', cls: 'label-stretch' },
   wildcard: { label: 'Wildcard',       cls: 'label-wildcard' },
 };
-    <>
-    function Poster({ poster, title, bg }) {
+
+function Poster({ poster, title, bg }) {
   const [failed, setFailed] = useState(false);
   return (
     <>
@@ -60,13 +60,7 @@ const PICK_LABELS = {
     </>
   );
 }
-<div className="poster-tl">
-  {pick.platform && <span className="platform-badge">{pick.platform}</span>}
-  {pick.letterboxd && <span className="bdg bdg-lb">↑ Letterboxd</span>}
-  {pick.rating >= 8.3 && <span className="bdg bdg-top">Top rated</span>}
-</div>
-  );
-}
+
 function FredCard({ msg, onSave }) {
   const [posterFailed, setPosterFailed] = useState(false);
   const bg = bgClass(msg.title);
@@ -257,11 +251,11 @@ export default function Fred() {
                     <Poster poster={pick.poster} title={pick.title} bg={bg} />
                     <div className="poster-grad"/>
                     <div className="poster-title-ov">{pick.title}</div>
-                 <div className="poster-tl">
-  {pick.platform && <span className="platform-badge">{pick.platform}</span>}
-  {pick.letterboxd && <span className="bdg bdg-lb">↑ Letterboxd</span>}
-  {pick.rating >= 8.3 && <span className="bdg bdg-top">Top rated</span>}
-</div>
+                    <div className="poster-tl">
+            {pick.platform && <span className="platform-badge">{pick.platform}</span>}
+                      {pick.letterboxd && <span className="bdg bdg-lb">↑ Letterboxd</span>}
+                      {pick.rating >= 8.3 && <span className="bdg bdg-top">Top rated</span>}
+                    </div>
                     {pick.rating && <div className="poster-score"><div className="score-n">{Number(pick.rating).toFixed(1)}</div><div className="score-l">IMDB</div></div>}
                   </div>
                   <div className="card-body">
