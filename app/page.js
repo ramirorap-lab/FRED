@@ -1,7 +1,10 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+
 const TMDB = 'https://image.tmdb.org/t/p/w500';
+const DEFAULT_PLATFORMS = ['Netflix', 'Prime Video'];
+const DEFAULT_MOODS     = ['smart', 'dark'];
 
 const PLATFORMS = ['Netflix', 'Prime Video', 'Hulu', 'Max', 'Apple TV+', 'Disney+', 'Peacock'];
 const MOODS = [
@@ -15,7 +18,6 @@ const MOODS = [
   { label: 'Award-winning', value: 'award' },
 ];
 
-// Ask Fred — keyword-matched responses
 const FRED_LINES = [
   { k:['tired','exhausted','easy','anything','simple'],
     text:"Abbott Elementary. Twenty-five minutes. You'll laugh three times before you realize you feel better.",
@@ -66,7 +68,6 @@ function bgClass(title) {
   return m[l] || 'bg-s';
 }
 
-// ── SVG ICONS ──
 const I = {
   Bookmark: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
   Refresh:  () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>,
@@ -79,15 +80,34 @@ const I = {
 };
 
 const PICK_LABELS = {
-  safe:     { label: "Fred's pick",  cls: 'label-safe' },
+  safe:     { label: "Fred's pick",   cls: 'label-safe' },
   stretch:  { label: 'Worth the risk', cls: 'label-stretch' },
-  wildcard: { label: 'Wildcard',     cls: 'label-wildcard' },
+  wildcard: { label: 'Wildcard',       cls: 'label-wildcard' },
 };
+
+// Poster with fallback to placeholder
+function Poster({ poster, title, bg }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <>
+      <div className={`poster-ph ${bg}`}>{title?.charAt(0)}</div>
+      {poster && !failed && (
+        <img
+          src={`${TMDB}${poster}`}
+          alt={title}
+          className="poster-img"
+          onError={() => setFailed(true)}
+          style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover' }}
+        />
+      )}
+    </>
+  );
+}
 
 export default function Fred() {
   const [screen,    setScreen]    = useState('tonight');
-  const [platforms, setPlatforms] = useState(['Netflix', 'Prime Video']);
-  const [moods,     setMoods]     = useState(['smart', 'dark']);
+  const [platforms, setPlatforms] = useState(DEFAULT_PLATFORMS);
+  const [moods,     setMoods]     = useState(DEFAULT_MOODS);
   const [picks,     setPicks]     = useState([]);
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState('');
@@ -96,8 +116,32 @@ export default function Fred() {
   const [chatInput, setChatInput] = useState('');
   const chatRef = useRef(null);
 
-  // Load picks on first mount
-  useEffect(() => { loadPicks(); }, []); // eslint-disable-line
+  // fetchPicks accepts explicit values to avoid stale closure on mount
+  const fetchPicks = useCallback(async (plats, mds) => {
+    if (!plats.length) return;
+    setLoading(true);
+    setError('');
+    setPicks([]);
+    try {
+      const params = new URLSearchParams({
+        platforms: plats.join(','),
+        moods:     mds.join(','),
+      });
+      const res  = await fetch(`/api/picks?${params}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setPicks(data.picks || []);
+    } catch (e) {
+      setError(e.message || "Fred couldn't connect. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Auto-load on mount with default values
+  useEffect(() => {
+    fetchPicks(DEFAULT_PLATFORMS, DEFAULT_MOODS);
+  }, [fetchPicks]);
 
   function go(name) { setScreen(name); }
 
@@ -108,33 +152,15 @@ export default function Fred() {
     setMoods(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
   }
 
-  async function loadPicks() {
-    if (!platforms.length) return;
+  function loadPicks() {
     go('tonight');
-    setLoading(true);
-    setError('');
-    setPicks([]);
-    try {
-      const params = new URLSearchParams({
-        platforms: platforms.join(','),
-        moods: moods.join(','),
-      });
-      const res  = await fetch(`/api/picks?${params}`);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setPicks(data.picks || []);
-    } catch (e) {
-      setError(e.message || 'Fred couldn\'t connect. Try again.');
-    } finally {
-      setLoading(false);
-    }
+    fetchPicks(platforms, moods);
   }
 
   function saveToStack(pick) {
     if (stack.find(s => s.id === pick.id)) return;
     setStack(prev => [...prev, pick]);
   }
-
   function removeFromStack(id) {
     setStack(prev => prev.filter(s => s.id !== id));
   }
@@ -153,7 +179,6 @@ export default function Fred() {
     }, 120);
   }
 
-  // ── RENDER ────────────────────────────────────────────────────────
   return (
     <div className="app">
 
@@ -162,7 +187,6 @@ export default function Fred() {
         <div className="setup-wrap">
           <div className="logo">Fred</div>
           <div className="logo-sub">Your film friend</div>
-
           <div className="sec-label">Your platforms</div>
           <div className="chips">
             {PLATFORMS.map(p => (
@@ -170,7 +194,6 @@ export default function Fred() {
                 onClick={() => togglePlatform(p)}>{p}</div>
             ))}
           </div>
-
           <div className="sec-label">Tonight's mood</div>
           <div className="chips">
             {MOODS.map(m => (
@@ -178,7 +201,6 @@ export default function Fred() {
                 onClick={() => toggleMood(m.value)}>{m.label}</div>
             ))}
           </div>
-
           <button className="cta" onClick={loadPicks}>
             Fred, show me tonight's picks
           </button>
@@ -205,14 +227,12 @@ export default function Fred() {
               </button>
             </div>
           )}
-          {!loading && !error && picks.length === 0 && (
+          {!loading && !error && picks.length === 0 && !loading && (
             <div className="loading">
-              <div className="load-txt">
-                Choose your platforms and mood in Setup, then tap the button.
-              </div>
+              <div className="load-txt">No picks found — try different platforms or mood.</div>
             </div>
           )}
-          {!loading && picks.map((pick, idx) => {
+          {!loading && picks.map((pick) => {
             const lbl = PICK_LABELS[pick.pick_type] || PICK_LABELS.safe;
             const bg  = bgClass(pick.title);
             const metaParts = [pick.year, pick.runtime,
@@ -223,15 +243,7 @@ export default function Fred() {
                 <div className={`pick-label ${lbl.cls}`}>{lbl.label}</div>
                 <div className="card">
                   <div className={`poster-wrap ${bg}`}>
-                    <div className="poster-ph">{pick.title?.charAt(0)}</div>
-                    {pick.poster && (
-                      <img
-                        src={`${TMDB}${pick.poster}`}
-                        alt={pick.title}
-                        className="poster-img"
-                        onError={e => { e.target.style.opacity = 0; }}
-                      />
-                    )}
+                    <Poster poster={pick.poster} title={pick.title} bg={bg} />
                     <div className="poster-grad" />
                     <div className="poster-title-ov">{pick.title}</div>
                     <div className="poster-tl">
@@ -247,9 +259,7 @@ export default function Fred() {
                   </div>
                   <div className="card-body">
                     <div className="card-meta">{metaParts.join(' · ')}</div>
-                    {pick.fred_note && (
-                      <div className="card-note">"{pick.fred_note}"</div>
-                    )}
+                    {pick.fred_note && <div className="card-note">"{pick.fred_note}"</div>}
                   </div>
                   <div className="card-actions">
                     <button className="ca sv" onClick={() => saveToStack(pick)}>
@@ -270,11 +280,8 @@ export default function Fred() {
       </div>
 
       {/* ── ASK FRED ── */}
-      <div
-        className={`screen ${screen === 'ask' ? 'active' : ''}`}
-        style={{ paddingBottom: '140px' }}
-        ref={chatRef}
-      >
+      <div className={`screen ${screen === 'ask' ? 'active' : ''}`}
+        style={{ paddingBottom: '140px' }} ref={chatRef}>
         <div className="a-hdr">
           <div className="screen-title">Ask Fred</div>
           <div className="a-sub">What do you feel like?</div>
@@ -297,9 +304,7 @@ export default function Fred() {
                   <div className="fred-text">"{msg.text}"</div>
                   {msg.title && (
                     <div className="resp-mini">
-                      <div className={`resp-ph ${bgClass(msg.title)}`}>
-                        {msg.title.charAt(0)}
-                      </div>
+                      <div className={`resp-ph ${bgClass(msg.title)}`}>{msg.title.charAt(0)}</div>
                       <div className="resp-info">
                         <div className="resp-title">{msg.title}</div>
                         <div className="resp-meta">{msg.meta}</div>
@@ -311,11 +316,11 @@ export default function Fred() {
                       onClick={() => msg.title && saveToStack({
                         id: `ask-${i}`, title: msg.title,
                         platform: msg.meta?.split(' · ')[0] || '',
-                        runtime: msg.meta?.split(' · ')[1] || '',
+                        runtime:  msg.meta?.split(' · ')[1] || '',
                         type: msg.meta?.toLowerCase().includes('series') ? 'series' : 'movie',
                         poster: null,
                       })}>
-                      <I.Bookmark style={{width:12,height:12,marginRight:3}} /> Save
+                      <I.Bookmark /> Save
                     </button>
                     <button className="rb s"
                       onClick={() => setMessages(prev => prev.filter((_,j) => j!==i && j!==i-1))}>
@@ -328,13 +333,10 @@ export default function Fred() {
           ))}
         </div>
         <div className="chat-bar">
-          <input
-            className="ci"
-            value={chatInput}
+          <input className="ci" value={chatInput}
             onChange={e => setChatInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && sendChat()}
-            placeholder="Ask Fred something specific…"
-          />
+            placeholder="Ask Fred something specific…" />
           <button className="cs" onClick={() => sendChat()}><I.Send /></button>
         </div>
       </div>
@@ -355,7 +357,7 @@ export default function Fred() {
             <div className="si" key={item.id}>
               {item.poster
                 ? <img src={`${TMDB}${item.poster}`} alt={item.title} className="si-img"
-                    onError={e => e.target.style.display='none'} />
+                    onError={e => { e.target.style.display='none'; }} />
                 : <div className={`si-ph ${bgClass(item.title)}`}>{item.title?.charAt(0)}</div>
               }
               <div className="si-info">
@@ -363,9 +365,7 @@ export default function Fred() {
                 <div className="si-title">{item.title}</div>
                 <div className="si-meta">{item.platform} · {item.runtime}</div>
               </div>
-              <button className="si-rm" onClick={() => removeFromStack(item.id)}>
-                <I.X />
-              </button>
+              <button className="si-rm" onClick={() => removeFromStack(item.id)}><I.X /></button>
             </div>
           ))}
         </div>
