@@ -47,12 +47,17 @@ const PICK_LABELS = {
   wildcard: { label: 'Wildcard',       cls: 'label-wildcard' },
 };
 
-<div className="poster-tl">
+function Poster({ poster, title, bg }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <>
+     <div className="poster-tl">
   {pick.platform && <span className="platform-badge">{pick.platform}</span>}
   {pick.letterboxd && <span className="bdg bdg-lb">↑ Letterboxd</span>}
   {pick.rating >= 8.3 && <span className="bdg bdg-top">Top rated</span>}
 </div>
-   
+  );
+}
 function FredCard({ msg, onSave }) {
   const [posterFailed, setPosterFailed] = useState(false);
   const bg = bgClass(msg.title);
