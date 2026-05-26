@@ -581,3 +581,14 @@ html, body {
   text-transform: uppercase;
   transition: opacity .7s ease;
 }
+.platform-badge {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 2px;
+  font-family: var(--font-body), sans-serif;
+  background: rgba(255,255,255,.08);
+  color: #fff;
+}
