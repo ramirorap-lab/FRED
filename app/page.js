@@ -18,48 +18,6 @@ const MOODS = [
   { label: 'Award-winning', value: 'award' },
 ];
 
-const FRED_LINES = [
-  { k:['tired','exhausted','easy','anything','simple'],
-    text:"Abbott Elementary. Twenty-five minutes. You'll laugh three times before you realize you feel better.",
-    title:"Abbott Elementary", meta:"Hulu · Series · 22 min" },
-  { k:['short','45','quick','brief'],
-    text:"Baby Reindeer. Six episodes, twenty-five minutes each. Starts unsettling, ends devastating.",
-    title:"Baby Reindeer", meta:"Netflix · Limited series · 25 min" },
-  { k:['bear','stress','anxious','calm','relax'],
-    text:"Slow Horses. Same pressure-cooker energy, but British intelligence instead of kitchens. Gary Oldman is extraordinary.",
-    title:"Slow Horses", meta:"Apple TV+ · Series" },
-  { k:['funny','laugh','comedy','lighten'],
-    text:"The Holdovers. Paul Giamatti at his absolute peak. Warm, sharp, and funnier than the trailer suggests.",
-    title:"The Holdovers", meta:"Peacock · 2h 13m" },
-  { k:['dark','grim','heavy','bleak'],
-    text:"Ripley. Black and white, obsessive, gorgeous. The kind of show you watch slowly and feel the weight of.",
-    title:"Ripley", meta:"Netflix · Series" },
-  { k:['smart','think','intelligent','cerebral'],
-    text:"Severance. The most original concept on television right now. Gets inside your head and stays.",
-    title:"Severance", meta:"Apple TV+ · Series" },
-  { k:['romantic','love','romance','date','feelings'],
-    text:"Past Lives. Quiet, emotionally precise, not sleepy. Makes your night feel intentional.",
-    title:"Past Lives", meta:"Prime Video · 1h 46m" },
-  { k:['intense','thriller','edge','seat','tension'],
-    text:"Fallout. Big-world sci-fi that doesn't ask you to do homework first. Walton Goggins is a revelation.",
-    title:"Fallout", meta:"Prime Video · Series" },
-  { k:['award','oscar','best','acclaimed','masterpiece'],
-    text:"Shōgun. The most awarded TV show in years — and it earned every one. Epic without being exhausting.",
-    title:"Shōgun", meta:"Hulu · Series" },
-  { k:['weird','strange','bold','different','unusual'],
-    text:"Poor Things. Weird, beautiful, and impossible to ignore. You've never seen anything quite like it.",
-    title:"Poor Things", meta:"Hulu · 2h 21m" },
-  { k:['sci','science','fiction','future','space'],
-    text:"Severance. Corporate dystopia as psychological thriller. The most unsettling office drama ever made.",
-    title:"Severance", meta:"Apple TV+ · Series" },
-];
-
-function getFredResponse(text) {
-  const q = text.toLowerCase();
-  return FRED_LINES.find(r => r.k.some(kw => q.includes(kw)))
-    || FRED_LINES[Math.floor(Math.random() * FRED_LINES.length)];
-}
-
 function bgClass(title) {
   const l = (title || 'S').charAt(0).toLowerCase();
   const m = {a:'bg-a',b:'bg-b',c:'bg-c',d:'bg-d',e:'bg-e',f:'bg-f',g:'bg-g',
@@ -85,7 +43,6 @@ const PICK_LABELS = {
   wildcard: { label: 'Wildcard',       cls: 'label-wildcard' },
 };
 
-// Poster with fallback to placeholder
 function Poster({ poster, title, bg }) {
   const [failed, setFailed] = useState(false);
   return (
@@ -114,19 +71,16 @@ export default function Fred() {
   const [stack,     setStack]     = useState([]);
   const [messages,  setMessages]  = useState([]);
   const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
   const chatRef = useRef(null);
 
-  // fetchPicks accepts explicit values to avoid stale closure on mount
   const fetchPicks = useCallback(async (plats, mds) => {
     if (!plats.length) return;
     setLoading(true);
     setError('');
     setPicks([]);
     try {
-      const params = new URLSearchParams({
-        platforms: plats.join(','),
-        moods:     mds.join(','),
-      });
+      const params = new URLSearchParams({ platforms: plats.join(','), moods: mds.join(',') });
       const res  = await fetch(`/api/picks?${params}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -138,7 +92,6 @@ export default function Fred() {
     }
   }, []);
 
-  // Auto-load on mount with default values
   useEffect(() => {
     fetchPicks(DEFAULT_PLATFORMS, DEFAULT_MOODS);
   }, [fetchPicks]);
@@ -165,18 +118,56 @@ export default function Fred() {
     setStack(prev => prev.filter(s => s.id !== id));
   }
 
-  function sendChat(text) {
+  async function sendChat(text) {
     const t = (text || chatInput).trim();
-    if (!t) return;
+    if (!t || chatLoading) return;
     setChatInput('');
-    const resp = getFredResponse(t);
-    setMessages(prev => [...prev,
-      { role: 'user', text: t },
-      { role: 'fred', text: resp.text, title: resp.title, meta: resp.meta },
-    ]);
-    setTimeout(() => {
-      chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: 'smooth' });
-    }, 120);
+
+    // Add user message immediately
+    setMessages(prev => [...prev, { role: 'user', text: t }]);
+    setChatLoading(true);
+
+    // Add thinking placeholder
+    setMessages(prev => [...prev, { role: 'fred', thinking: true, text: '', title: '', meta: '' }]);
+
+    try {
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: t, platforms, moods }),
+      });
+      const data = await res.json();
+
+      // Replace thinking placeholder with real response
+      setMessages(prev => {
+        const updated = [...prev];
+        const thinkingIdx = updated.findLastIndex(m => m.thinking);
+        if (thinkingIdx !== -1) {
+          updated[thinkingIdx] = {
+            role: 'fred',
+            text: data.text || data.error || "Fred couldn't connect. Try again.",
+            title: data.title || '',
+            meta: data.meta || '',
+            thinking: false,
+          };
+        }
+        return updated;
+      });
+    } catch {
+      setMessages(prev => {
+        const updated = [...prev];
+        const thinkingIdx = updated.findLastIndex(m => m.thinking);
+        if (thinkingIdx !== -1) {
+          updated[thinkingIdx] = { role: 'fred', text: "Fred couldn't connect. Try again.", title: '', meta: '', thinking: false };
+        }
+        return updated;
+      });
+    } finally {
+      setChatLoading(false);
+      setTimeout(() => {
+        chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: 'smooth' });
+      }, 120);
+    }
   }
 
   return (
@@ -215,29 +206,21 @@ export default function Fred() {
         </div>
         <div className="picks-wrap">
           {loading && (
-            <div className="loading">
-              <div className="spinner" />
-              <div className="load-txt">Fred is thinking…</div>
-            </div>
+            <div className="loading"><div className="spinner" /><div className="load-txt">Fred is thinking…</div></div>
           )}
           {!loading && error && (
             <div className="err-txt">{error}<br/><br/>
-              <button className="cta" style={{fontSize:'14px',padding:'12px'}} onClick={loadPicks}>
-                Try again
-              </button>
+              <button className="cta" style={{fontSize:'14px',padding:'12px'}} onClick={loadPicks}>Try again</button>
             </div>
           )}
-          {!loading && !error && picks.length === 0 && !loading && (
-            <div className="loading">
-              <div className="load-txt">No picks found — try different platforms or mood.</div>
-            </div>
+          {!loading && !error && picks.length === 0 && (
+            <div className="loading"><div className="load-txt">No picks found — try different platforms or mood.</div></div>
           )}
           {!loading && picks.map((pick) => {
             const lbl = PICK_LABELS[pick.pick_type] || PICK_LABELS.safe;
             const bg  = bgClass(pick.title);
             const metaParts = [pick.year, pick.runtime,
-              pick.type === 'series' ? 'Series' : 'Film',
-              pick.platform].filter(Boolean);
+              pick.type === 'series' ? 'Series' : 'Film', pick.platform].filter(Boolean);
             return (
               <div key={pick.id}>
                 <div className={`pick-label ${lbl.cls}`}>{lbl.label}</div>
@@ -262,15 +245,9 @@ export default function Fred() {
                     {pick.fred_note && <div className="card-note">"{pick.fred_note}"</div>}
                   </div>
                   <div className="card-actions">
-                    <button className="ca sv" onClick={() => saveToStack(pick)}>
-                      <I.Bookmark /> Save
-                    </button>
-                    <button className="ca" onClick={loadPicks}>
-                      <I.Refresh /> More
-                    </button>
-                    <button className="ca">
-                      <I.External /> Open
-                    </button>
+                    <button className="ca sv" onClick={() => saveToStack(pick)}><I.Bookmark /> Save</button>
+                    <button className="ca" onClick={loadPicks}><I.Refresh /> More</button>
+                    <button className="ca"><I.External /> Open</button>
                   </div>
                 </div>
               </div>
@@ -301,32 +278,41 @@ export default function Fred() {
               )}
               {msg.role === 'fred' && (
                 <div className="fred-bubble">
-                  <div className="fred-text">"{msg.text}"</div>
-                  {msg.title && (
-                    <div className="resp-mini">
-                      <div className={`resp-ph ${bgClass(msg.title)}`}>{msg.title.charAt(0)}</div>
-                      <div className="resp-info">
-                        <div className="resp-title">{msg.title}</div>
-                        <div className="resp-meta">{msg.meta}</div>
-                      </div>
+                  {msg.thinking ? (
+                    <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                      <div className="spinner" style={{width:'18px',height:'18px',borderWidth:'1.5px'}}/>
+                      <span style={{fontSize:'12px',color:'var(--dim)',letterSpacing:'.08em',textTransform:'uppercase'}}>Fred is thinking…</span>
                     </div>
+                  ) : (
+                    <>
+                      <div className="fred-text">"{msg.text}"</div>
+                      {msg.title && (
+                        <div className="resp-mini">
+                          <div className={`resp-ph ${bgClass(msg.title)}`}>{msg.title.charAt(0)}</div>
+                          <div className="resp-info">
+                            <div className="resp-title">{msg.title}</div>
+                            <div className="resp-meta">{msg.meta}</div>
+                          </div>
+                        </div>
+                      )}
+                      <div className="resp-actions">
+                        <button className="rb p"
+                          onClick={() => msg.title && saveToStack({
+                            id: `ask-${i}`, title: msg.title,
+                            platform: msg.meta?.split(' · ')[0] || '',
+                            runtime: msg.meta?.split(' · ')[1] || '',
+                            type: msg.meta?.toLowerCase().includes('series') ? 'series' : 'movie',
+                            poster: null,
+                          })}>
+                          <I.Bookmark /> Save
+                        </button>
+                        <button className="rb s"
+                          onClick={() => setMessages(prev => prev.filter((_,j) => j!==i && j!==i-1))}>
+                          Ask again
+                        </button>
+                      </div>
+                    </>
                   )}
-                  <div className="resp-actions">
-                    <button className="rb p"
-                      onClick={() => msg.title && saveToStack({
-                        id: `ask-${i}`, title: msg.title,
-                        platform: msg.meta?.split(' · ')[0] || '',
-                        runtime:  msg.meta?.split(' · ')[1] || '',
-                        type: msg.meta?.toLowerCase().includes('series') ? 'series' : 'movie',
-                        poster: null,
-                      })}>
-                      <I.Bookmark /> Save
-                    </button>
-                    <button className="rb s"
-                      onClick={() => setMessages(prev => prev.filter((_,j) => j!==i && j!==i-1))}>
-                      Ask again
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
@@ -336,8 +322,10 @@ export default function Fred() {
           <input className="ci" value={chatInput}
             onChange={e => setChatInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && sendChat()}
-            placeholder="Ask Fred something specific…" />
-          <button className="cs" onClick={() => sendChat()}><I.Send /></button>
+            placeholder="Ask Fred something specific…"
+            disabled={chatLoading}
+          />
+          <button className="cs" onClick={() => sendChat()} disabled={chatLoading}><I.Send /></button>
         </div>
       </div>
 
@@ -373,18 +361,10 @@ export default function Fred() {
 
       {/* ── NAV ── */}
       <nav className="nav">
-        <button className={`nv ${screen==='setup'   ?'active':''}`} onClick={()=>go('setup')}>
-          <I.Menu /> Setup
-        </button>
-        <button className={`nv ${screen==='tonight' ?'active':''}`} onClick={()=>go('tonight')}>
-          <I.Movie /> Tonight
-        </button>
-        <button className={`nv ${screen==='ask'     ?'active':''}`} onClick={()=>go('ask')}>
-          <I.Chat /> Ask Fred
-        </button>
-        <button className={`nv ${screen==='stack'   ?'active':''}`} onClick={()=>go('stack')}>
-          <I.Bookmark /> Stack
-        </button>
+        <button className={`nv ${screen==='setup'   ?'active':''}`} onClick={()=>go('setup')}><I.Menu /> Setup</button>
+        <button className={`nv ${screen==='tonight' ?'active':''}`} onClick={()=>go('tonight')}><I.Movie /> Tonight</button>
+        <button className={`nv ${screen==='ask'     ?'active':''}`} onClick={()=>go('ask')}><I.Chat /> Ask Fred</button>
+        <button className={`nv ${screen==='stack'   ?'active':''}`} onClick={()=>go('stack')}><I.Bookmark /> Stack</button>
       </nav>
     </div>
   );
