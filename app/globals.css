@@ -497,3 +497,23 @@ html, body {
 .ca-seen-active svg {
   stroke: #00c27a;
 }
+
+/* ── CARD FLIP ANIMATION ── */
+.pick-block {
+  perspective: 1000px;
+}
+.pick-block .card {
+  transform-style: preserve-3d;
+  transition: transform .32s cubic-bezier(.4,0,.2,1);
+  backface-visibility: hidden;
+}
+.pick-block.is-flipping .card {
+  transform: rotateY(90deg);
+}
+.pick-block.is-flipped-in .card {
+  animation: flipIn .38s cubic-bezier(.4,0,.2,1) forwards;
+}
+@keyframes flipIn {
+  from { transform: rotateY(-90deg); }
+  to   { transform: rotateY(0deg); }
+}
