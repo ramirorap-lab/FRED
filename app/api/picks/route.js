@@ -214,6 +214,24 @@ Respond ONLY with valid JSON array, no markdown:
   return JSON.parse(text.replace(/```json|```/g, '').trim());
 }
 
+// Get real platform for a title
+async function enrichPlatform(tmdbId, type, platformIds, token) {
+  if (!tmdbId || !token) return null;
+  try {
+    const endpoint = type === 'series'
+      ? `${TMDB}/tv/${tmdbId}/watch/providers`
+      : `${TMDB}/movie/${tmdbId}/watch/providers`;
+    const data = await tmdbFetch(endpoint, token);
+    const us = data?.results?.US;
+    if (!us) return null;
+    const available = [...(us.flatrate||[]), ...(us.free||[]), ...(us.ads||[])];
+    const match = available.find(p => platformIds.includes(p.provider_id));
+    if (!match) return null;
+    const nameMap = { 8:'Netflix', 9:'Prime Video', 15:'Hulu', 384:'Max', 350:'Apple TV+', 337:'Disney+', 386:'Peacock' };
+    return nameMap[match.provider_id] || match.provider_name;
+  } catch { return null; }
+}
+
 // Fetch real poster from TMDB using tmdb_id
 async function enrichPoster(tmdbId, type, token) {
   if (!tmdbId || !token) return null;
@@ -285,10 +303,18 @@ export async function GET(request) {
       };
     });
 
-    // Enrich posters directly from TMDB (Claude's poster paths can be wrong)
+    // Enrich poster + platform directly from TMDB
+    const platformIds = platforms.map(p => PROVIDER_IDS[p]).filter(Boolean);
     const enriched = await Promise.all(result.map(async pick => {
-      const realPoster = await enrichPoster(pick.tmdb_id, pick.type, tmdbToken);
-      return { ...pick, poster: realPoster || pick.poster };
+      const [realPoster, realPlatform] = await Promise.all([
+        enrichPoster(pick.tmdb_id, pick.type, tmdbToken),
+        enrichPlatform(pick.tmdb_id, pick.type, platformIds, tmdbToken),
+      ]);
+      return {
+        ...pick,
+        poster:   realPoster   || pick.poster,
+        platform: realPlatform || pick.platform || platforms[0],
+      };
     }));
 
     return NextResponse.json({ picks: enriched });
