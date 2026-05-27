@@ -18,6 +18,15 @@ const MOODS = [
   { label: 'Family',    value: 'family' },
 ];
 
+const FRED_GREETINGS = [
+  "You actually showed up. Good. Most people just scroll Netflix for 40 minutes and go to bed. Not you. So — what are we working with tonight?",
+  "Fred here. Not an algorithm. I don't care what's trending. Tell me what you're feeling and I'll find you something that earns it.",
+  "Let's make this count. Life's too short for bad movies and good movies watched at the wrong time. What's tonight about?",
+  "Finally, someone who wants a real recommendation. I've seen everything. Ask me anything. What kind of film night are we building?",
+  "You came to the right place. Netflix will give you The Gray Man again. I won't. What are you in the mood for?",
+  "Ask me anything. Best film about obsession? Underrated 90s thriller? Something Italian that will ruin you for other cinema? I'm here.",
+];
+
 const PICK_LABELS = {
   safe:     { label: "Fred's Pick",    cls: 'label-safe' },
   stretch:  { label: 'Worth the Risk', cls: 'label-stretch' },
@@ -85,9 +94,10 @@ function Poster({ poster, title, bg }) {
 function FredCard({ msg, onSave }) {
   const [posterFailed, setPosterFailed] = useState(false);
   const bg = bgClass(msg.title);
+  const isGreeting = !msg.title;
   return (
-    <div className="fred-bubble">
-      <div className="fred-text">"{stripMd(msg.text)}"</div>
+    <div className={`fred-bubble ${isGreeting ? 'fred-greeting' : ''}`}>
+      <div className="fred-text">{isGreeting ? stripMd(msg.text) : `"${stripMd(msg.text)}"`}</div>
       {msg.title && (
         <div className="fred-pick-card">
           <div className={`fred-pick-poster ${bg}`}>
@@ -193,7 +203,10 @@ export default function Fred() {
     if (typeof window === 'undefined') return [];
     try { return JSON.parse(localStorage.getItem('fred_watched') || '[]'); } catch { return []; }
   });
-  const [messages,     setMessages]     = useState([]);
+  const [messages,     setMessages]     = useState(() => {
+    const greeting = FRED_GREETINGS[Math.floor(Math.random() * FRED_GREETINGS.length)];
+    return [{ role: 'fred', text: greeting, title: '', meta: '', poster: null }];
+  });
   const [chatInput,    setChatInput]    = useState('');
   const [chatLoading,  setChatLoading]  = useState(false);
   const [tasteProfile, setTasteProfile] = useState(null);
@@ -462,7 +475,7 @@ export default function Fred() {
           <div className="topbar-right">Ask Fred</div>
         </div>
         <div className="prompt-chips">
-          {['Smart but not depressing','Under 45 minutes','Like The Bear but calmer',"I'm exhausted, easy pick"].map(p=>(
+          {['Best film about obsession?','Something Italian','Underrated 90s thriller',"Under 90 minutes, no superheroes"].map(p=>(
             <div key={p} className="pc" onClick={() => sendChat(p)}>{p}</div>
           ))}
         </div>
