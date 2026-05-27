@@ -113,15 +113,14 @@ html, body {
   display: flex; align-items: center; justify-content: center;
   transition: all .15s; flex-shrink: 0;
 }
-.mood-check svg { width: 9px; height: 9px; stroke-width: 2.5; opacity: 0; }
+.mood-check svg { display: none; }
 .mood-item.on .mood-check { background: var(--red); border-color: var(--red); }
-.mood-item.on .mood-check svg { opacity: 1; }
 
 .taste-cta {
   width: 100%; padding: 15px; background: var(--red);
   color: #fff; border: none; border-radius: 8px;
-  font-family: var(--font-display), sans-serif;
-  font-size: 20px; font-weight: 900; font-style: italic;
+  font-family: 'Playfair Display', var(--font-display), serif;
+  font-size: 22px; font-weight: 900; font-style: italic;
   letter-spacing: -.01em;
   cursor: pointer; transition: opacity .2s; margin-bottom: 32px;
 }
