@@ -258,44 +258,34 @@ export default function Fred() {
       {/* TASTE */}
       <div className={`screen ${screen==='taste'?'active':''}`}>
         <div className="taste-wrap">
-          <div className="taste-logo">Fred</div>
-          <div className="taste-slogan">Your film friend</div>
-          <div className="taste-question">
-            What are you<br />
-            <strong>in the mood for</strong><br />
-            tonight?
-          </div>
-          <div className="t-divider" />
-          <div className="sec-label">Your platforms</div>
-          <div className="platform-row">
-            {PLATFORMS.map(p => (
-              <div key={p} className={`plat-pill ${platforms.includes(p)?'on':''}`}
-                onClick={() => togglePlatform(p)}>{p}</div>
-            ))}
-          </div>
-          <div className="t-divider" />
-          <div className="mood-list">
-            {MOODS.map((m, i) => (
-              <div key={m.value} className={`mood-item ${moods.includes(m.value)?'on':''}`}
-                onClick={() => toggleMood(m.value)}>
-                <span className="mood-num">0{i+1}</span>
-                <span className="mood-name">{m.label}</span>
-                <span className="mood-check">
-                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor"><polyline points="2,6 5,9 10,3"/></svg>
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="t-divider" />
-          <LetterboxdUpload onProfileLoaded={profile => {
-            setTasteProfile(profile);
-          }} />
-          <button className="taste-cta" onClick={loadPicks}>
-            Tonight's picks
-          </button>
-        </div>
-      </div>
+         <div className="taste-logo">Fred</div>
+<div className="taste-slogan">Your film friend</div>
+<div className="taste-question">
+  What are you<br />
+  <strong>in the mood for</strong><br />
+  tonight?
+</div>
 
+<div className="t-divider" />
+
+<div className="mood-list">
+  {MOODS.map(...)}
+</div>
+
+<div className="t-divider" />
+
+<div className="sec-label">Your platforms</div>
+<div className="platform-row">
+  {PLATFORMS.map(...)}
+</div>
+
+<div className="t-divider" />
+
+<LetterboxdUpload ... />
+
+<button className="taste-cta" onClick={loadPicks}>
+  Tonight's picks
+</button>
       {/* TONIGHT */}
       <div className={`screen ${screen==='tonight'?'active':''}`}>
         <div className="topbar">
