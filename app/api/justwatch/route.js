@@ -1,36 +1,8 @@
 import { NextResponse } from 'next/server';
 
-const JW_API = 'https://apis.justwatch.com/graphql';
-
-const SEARCH_QUERY = `
-query SearchTitle($title: String!, $country: String!, $type: MediaType!) {
-  popularTitles(
-    country: $country
-    filter: { searchQuery: $title, objectTypes: [$type] }
-    first: 5
-  ) {
-    edges {
-      node {
-        id
-        content(country: $country, language: "en") {
-          title
-          originalReleaseYear
-        }
-        offers(country: $country, platform: WEB) {
-          monetizationType
-          package {
-            clearName
-            technicalName
-          }
-        }
-      }
-    }
-  }
-}`;
-
 const JW_PACKAGE_MAP = {
   'nfx': 'Netflix',
-  'prv': 'Prime Video',
+  'prv': 'Prime Video', 
   'hlu': 'Hulu',
   'hbm': 'Max',
   'atp': 'Apple TV+',
@@ -47,58 +19,58 @@ export async function GET(request) {
 
   if (!title) return NextResponse.json({ error: 'title required' }, { status: 400 });
 
-  const jwType = type === 'series' ? 'SHOW' : 'MOVIE';
-
   try {
-    const res = await fetch(JW_API, {
+    // Try JustWatch REST API v2
+    const body = {
+      content_types: [type === 'series' ? 'show' : 'movie'],
+      search_query: title,
+      page_size: 5,
+      page: 1,
+    };
+
+    const res = await fetch('https://apis.justwatch.com/content/titles/en_US/popular', {
       method: 'POST',
       headers: {
         'Content-Type':   'application/json',
-        'User-Agent':     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        'User-Agent':     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
         'Origin':         'https://www.justwatch.com',
-        'Referer':        'https://www.justwatch.com/us/search?q=' + encodeURIComponent(title),
-        'Accept':         'application/json, text/plain, */*',
-        'Accept-Language':'en-US,en;q=0.9',
-        'Cache-Control':  'no-cache',
-        'Pragma':         'no-cache',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-site',
+        'Referer':        'https://www.justwatch.com/',
+        'Accept':         'application/json',
       },
-      body: JSON.stringify({
-        operationName: 'SearchTitle',
-        query: SEARCH_QUERY,
-        variables: { title, country: 'US', type: jwType },
-      }),
+      body: JSON.stringify(body),
     });
 
     const text = await res.text();
-    console.log('JW status:', res.status, 'body:', text.slice(0, 200));
+    console.log('JW REST status:', res.status, text.slice(0, 300));
 
     if (!res.ok) {
-      return NextResponse.json({ platform: null, allPlatforms: [], error: `JW ${res.status}` });
+      return NextResponse.json({ platform: null, allPlatforms: [], debug: `${res.status}: ${text.slice(0,100)}` });
     }
 
-    const data   = JSON.parse(text);
-    const edges  = data?.data?.popularTitles?.edges || [];
+    const data  = JSON.parse(text);
+    const items = data?.items || [];
 
-    const clean = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const match = edges.find(e => {
-      const t = e.node?.content?.title || '';
-      const y = e.node?.content?.originalReleaseYear;
-      return clean(t) === clean(title) && (!year || !y || Math.abs(parseInt(y) - parseInt(year)) <= 1);
-    }) || edges[0];
+    const clean = s => (s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    const match = items.find(i => {
+      const t = i.title || i.original_title || '';
+      const y = i.original_release_year;
+      return clean(t) === clean(title) && (!year || !y || Math.abs(y - parseInt(year)) <= 1);
+    }) || items[0];
 
     if (!match) return NextResponse.json({ platform: null, allPlatforms: [] });
 
-    const flatrate = (match.node.offers || []).filter(o => o.monetizationType === 'FLATRATE');
-    const available = flatrate.map(o => JW_PACKAGE_MAP[o.package?.technicalName]).filter(Boolean);
+    const offers   = match.offers || [];
+    const flatrate = offers.filter(o => o.monetization_type === 'flatrate');
+    const available = [...new Set(
+      flatrate.map(o => JW_PACKAGE_MAP[o.package_short_name]).filter(Boolean)
+    )];
+
     const userPlatform = platforms.find(p => available.includes(p)) || available[0] || null;
 
     return NextResponse.json({ platform: userPlatform, allPlatforms: available });
 
   } catch (err) {
-    console.error('JustWatch error:', err.message);
+    console.error('JW error:', err.message);
     return NextResponse.json({ platform: null, allPlatforms: [], error: err.message });
   }
 }
