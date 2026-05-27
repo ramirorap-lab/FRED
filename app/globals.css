@@ -517,3 +517,16 @@ html, body {
   from { transform: rotateY(-90deg); }
   to   { transform: rotateY(0deg); }
 }
+
+/* ── ASK FRED GREETING ── */
+.fred-greeting {
+  border-color: #1e1e20;
+  background: #0f0f11;
+}
+.fred-greeting .fred-text {
+  font-style: normal;
+  font-size: 15px;
+  color: #ccc;
+  line-height: 1.7;
+  font-family: var(--font-body), sans-serif;
+}
