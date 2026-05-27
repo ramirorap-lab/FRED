@@ -315,7 +315,10 @@ export default function Fred() {
     try {
       const res = await fetch('/api/ask', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ message:t, platforms, moods, tasteProfile }),
+        body:JSON.stringify({
+          message:t, platforms, moods, tasteProfile,
+          history: messages.filter(m => !m.thinking).slice(-8),
+        }),
       });
       const data = await res.json();
       setMessages(prev => {
