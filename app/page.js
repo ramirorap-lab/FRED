@@ -333,9 +333,13 @@ export default function Fred() {
                       : lbl.label}
                   </span>
                   <span className="pick-sep">·</span>
+                  <span className={`type-badge ${pick.type === 'series' ? 'type-series' : 'type-film'}`}>
+                    {pick.type === 'series' ? 'Series' : 'Film'}
+                  </span>
+                  <span className="pick-sep">·</span>
                   <span className="plat-name">{pick.platform}</span>
                   <span className="pick-sep">·</span>
-                  <span className="pick-meta-line">{[pick.year, pick.runtime, pick.type==='series'?'Series':'Film'].filter(Boolean).join(' · ')}</span>
+                  <span className="pick-meta-line">{[pick.year, pick.runtime].filter(Boolean).join(' · ')}</span>
                 </div>
                 <div className="card">
                   <div className={`poster-wrap ${bg}`}>
