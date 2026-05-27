@@ -151,9 +151,13 @@ async function getDirectorCandidates(platforms, moods, supabaseUrl, supabaseKey,
   }
 }
 
-async function curateWithClaude(regular, directorCandidates, platforms, moods, tasteProfile, anthropicKey) {
+async function curateWithClaude(regular, directorCandidates, platforms, moods, tasteProfile, excludeIds, anthropicKey) {
   const profileCtx = tasteProfile
     ? `\n\nUser Letterboxd taste profile:\n${JSON.stringify(tasteProfile, null, 2)}`
+    : '';
+
+  const excludeCtx = excludeIds?.length
+    ? `\n\nUser has already seen these TMDB IDs — DO NOT include them: ${excludeIds.join(', ')}`
     : '';
 
   const dirCtx = directorCandidates.length
@@ -163,7 +167,7 @@ async function curateWithClaude(regular, directorCandidates, platforms, moods, t
   const prompt = `You are Fred, a sharp cinephile film curator.
 
 Platforms: ${platforms.join(', ')}
-Mood: ${moods.join(', ')}${profileCtx}${dirCtx}
+Mood: ${moods.join(', ')}${profileCtx}${excludeCtx}${dirCtx}
 
 Regular movie candidates:
 ${JSON.stringify(regular.movies, null, 2)}
@@ -274,6 +278,8 @@ export async function GET(request) {
   const platforms    = (searchParams.get('platforms') || '').split(',').filter(Boolean);
   const moods        = (searchParams.get('moods')     || 'smart').split(',').filter(Boolean);
   const tasteProfile = searchParams.get('taste') ? JSON.parse(decodeURIComponent(searchParams.get('taste'))) : null;
+  const excludeIds   = (searchParams.get('exclude') || '').split(',').filter(Boolean).map(Number);
+  const replaceType  = searchParams.get('replace') || null;
 
   const tmdbToken    = process.env.TMDB_TOKEN;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -291,7 +297,7 @@ export async function GET(request) {
       getDirectorCandidates(platforms, moods, supabaseUrl, supabaseKey, tmdbToken),
     ]);
 
-    const picks = await curateWithClaude(regular, directorCandidates, platforms, moods, tasteProfile, anthropicKey);
+    const picks = await curateWithClaude(regular, directorCandidates, platforms, moods, tasteProfile, excludeIds, anthropicKey);
 
     // Enforce 2 movies + 1 series, no duplicates
     const seen = new Set();
@@ -307,7 +313,11 @@ export async function GET(request) {
     }
     const ordered = [...movies, ...series];
 
-    const result = ordered.map(pick => {
+    const finalPicks = replaceType
+      ? ordered.filter(p => p.type === replaceType).slice(0, 1)
+      : ordered;
+
+    const result = finalPicks.map(pick => {
       // For director picks, use the data we already have
       const dirMatch = directorCandidates.find(d => d.title.toLowerCase() === pick.title.toLowerCase());
       return {
