@@ -55,11 +55,13 @@ function Poster({ poster, title, bg }) {
   return (
     <>
       <div className={`poster-ph ${bg}`}>{title?.charAt(0)}</div>
-     {poster && !failed && (
-  <img src={`${TMDB}${poster}`} alt={title} className="poster-img"
-    onError={() => setFailed(true)} />
-)}
-
+      {poster && !failed && (
+        <img src={`${TMDB}${poster}`} alt={title} className="poster-img"
+          onError={() => setFailed(true)} />
+      )}
+    </>
+  );
+}
 function FredCard({ msg, onSave }) {
   const [posterFailed, setPosterFailed] = useState(false);
   const bg = bgClass(msg.title);
