@@ -325,7 +325,11 @@ export default function Fred() {
             return (
               <div key={pick.id}>
                 <div className="pick-header">
-                  <span className={`pick-label ${lbl.cls}`}>{lbl.label}</span>
+                 <span className={`pick-label ${lbl.cls}`}>
+  {pick.pick_type === 'wildcard' && pick.director_name
+    ? `${pick.director_name.split(' ').pop()}'s Pick`
+    : lbl.label}
+</span>
                   <span className="pick-sep">·</span>
                   <span className="plat-name">{pick.platform}</span>
                   <span className="pick-sep">·</span>
