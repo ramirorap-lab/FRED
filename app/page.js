@@ -96,8 +96,10 @@ function FredCard({ msg, onSave }) {
   const bg = bgClass(msg.title);
   const isGreeting = !msg.title;
   return (
-    <div className={`fred-bubble ${isGreeting ? 'fred-greeting' : ''}`}>
-      <div className="fred-text">{isGreeting ? stripMd(msg.text) : `"${stripMd(msg.text)}"`}</div>
+    <div className="fred-row">
+      <div className="fred-avatar">F</div>
+      <div className={`fred-bubble ${isGreeting ? 'fred-greeting' : ''}`}>
+        <div className="fred-text">{isGreeting ? stripMd(msg.text) : `"${stripMd(msg.text)}"`}</div>
       {msg.title && (
         <div className="fred-pick-card">
           <div className={`fred-pick-poster ${bg}`}>
@@ -118,6 +120,7 @@ function FredCard({ msg, onSave }) {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -482,13 +485,20 @@ export default function Fred() {
         <div className="chat-area">
           {messages.map((msg,i) => (
             <div key={i}>
-              {msg.role==='user' && <div className="user-msg-wrap"><span className="user-msg">{msg.text}</span></div>}
+              {msg.role==='user' && (
+                <div className="user-row">
+                  <div className="user-bubble">{msg.text}</div>
+                </div>
+              )}
               {msg.role==='fred' && (
                 msg.thinking ? (
-                  <div className="fred-bubble">
-                    <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-                      <div className="spinner" style={{width:'16px',height:'16px',borderWidth:'1.5px'}}/>
-                      <span style={{fontSize:'11px',color:'var(--dim)',letterSpacing:'.1em',textTransform:'uppercase'}}>Fred is thinking…</span>
+                  <div className="fred-row">
+                    <div className="fred-avatar">F</div>
+                    <div className="fred-bubble fred-greeting">
+                      <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                        <div className="spinner" style={{width:'14px',height:'14px',borderWidth:'1.5px'}}/>
+                        <span style={{fontSize:'11px',color:'var(--dim)',letterSpacing:'.06em'}}>Fred is thinking…</span>
+                      </div>
                     </div>
                   </div>
                 ) : <FredCard msg={msg} onSave={saveFredPick} />
