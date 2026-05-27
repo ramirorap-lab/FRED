@@ -8,14 +8,14 @@ const DEFAULT_MOODS     = ['smart', 'dark'];
 
 const PLATFORMS = ['Netflix', 'Prime Video', 'Hulu', 'Max', 'Apple TV+', 'Disney+', 'Peacock'];
 const MOODS = [
-  { label: 'Chill',         value: 'chill' },
-  { label: 'Smart',         value: 'smart' },
-  { label: 'Funny',         value: 'funny' },
-  { label: 'Dark',          value: 'dark' },
-  { label: 'Romantic',      value: 'romantic' },
-  { label: 'Intense',       value: 'intense' },
-  { label: 'Short',         value: 'short' },
-  { label: 'Award-winning', value: 'award' },
+  { label: 'Smart',     value: 'smart' },
+  { label: 'Dark',      value: 'dark' },
+  { label: 'Funny',     value: 'funny' },
+  { label: 'Romantic',  value: 'romantic' },
+  { label: 'Intense',   value: 'intense' },
+  { label: 'Horror',    value: 'horror' },
+  { label: 'Adventure', value: 'adventure' },
+  { label: 'Family',    value: 'family' },
 ];
 
 function stripMd(text) {
@@ -37,14 +37,15 @@ const I = {
   Send:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>,
   X:        () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   Movie:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/></svg>,
-  Home:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  Search:   () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   Chat:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+  Play:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>,
 };
 
 const PICK_LABELS = {
-  safe:     { label: "Fred's pick",    cls: 'label-safe' },
-  stretch:  { label: 'Worth the risk', cls: 'label-stretch' },
-  wildcard: { label: 'Wildcard',       cls: 'label-wildcard' },
+  safe:     { label: "Fred's Pick",    cls: 'label-safe' },
+  stretch:  { label: 'Worth the Risk', cls: 'label-stretch' },
+  wildcard: { label: "Director's Pick", cls: 'label-director' },
 };
 
 function Poster({ poster, title, bg }) {
@@ -91,20 +92,14 @@ function FredCard({ msg, onSave }) {
   );
 }
 
-// ── INTRO SCREEN ──────────────────────────────
 function Intro({ onDone }) {
   const [phase, setPhase] = useState(0);
-  // phase 0: logo fades in
-  // phase 1: tagline fades in
-  // phase 2: everything fades out → done
-
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 800);
-    const t2 = setTimeout(() => setPhase(2), 2200);
-    const t3 = setTimeout(() => onDone(), 2900);
+    const t1 = setTimeout(() => setPhase(1), 600);
+    const t2 = setTimeout(() => setPhase(2), 2000);
+    const t3 = setTimeout(() => onDone(), 2700);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [onDone]);
-
   return (
     <div className="intro-screen" style={{ opacity: phase === 2 ? 0 : 1 }}>
       <div className="intro-logo" style={{ opacity: phase >= 0 ? 1 : 0, transform: phase >= 0 ? 'translateY(0)' : 'translateY(16px)' }}>
@@ -145,14 +140,12 @@ export default function Fred() {
     } finally { setLoading(false); }
   }, []);
 
+  useEffect(() => { fetchPicks(DEFAULT_PLATFORMS, DEFAULT_MOODS); }, [fetchPicks]);
+
   function go(name) { setScreen(name); }
   function togglePlatform(p) { setPlatforms(prev => prev.includes(p) ? prev.filter(x=>x!==p) : [...prev,p]); }
   function toggleMood(m)     { setMoods(prev => prev.includes(m) ? prev.filter(x=>x!==m) : [...prev,m]); }
-
-  function loadPicks() {
-    go('tonight');
-    fetchPicks(platforms, moods);
-  }
+  function loadPicks()       { go('tonight'); fetchPicks(platforms, moods); }
 
   function saveToStack(pick) {
     const id = pick.id || pick.title;
@@ -162,14 +155,9 @@ export default function Fred() {
   function removeFromStack(id) { setStack(prev => prev.filter(s => s.id !== id)); }
 
   function saveFredPick(msg) {
-    saveToStack({
-      id: `ask-${msg.title}`,
-      title: msg.title,
-      platform: msg.meta?.split(' · ')[0] || '',
-      runtime:  msg.meta?.split(' · ')[1] || '',
-      type: msg.meta?.toLowerCase().includes('series') ? 'series' : 'movie',
-      poster: msg.poster || null,
-    });
+    saveToStack({ id:`ask-${msg.title}`, title:msg.title,
+      platform:msg.meta?.split(' · ')[0]||'', runtime:msg.meta?.split(' · ')[1]||'',
+      type:msg.meta?.toLowerCase().includes('series')?'series':'movie', poster:msg.poster||null });
   }
 
   async function sendChat(text) {
@@ -181,25 +169,24 @@ export default function Fred() {
     setMessages(prev => [...prev, { role:'fred', thinking:true }]);
     try {
       const res = await fetch('/api/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message:t, platforms, moods }),
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ message:t, platforms, moods }),
       });
       const data = await res.json();
       setMessages(prev => {
-        const updated = [...prev];
-        const idx = updated.findLastIndex(m => m.thinking);
-        if (idx !== -1) updated[idx] = { role:'fred', thinking:false,
-          text: data.text || data.error || "Fred couldn't connect.",
-          title: data.title || '', meta: data.meta || '', poster: data.poster || null };
-        return updated;
+        const u = [...prev];
+        const idx = u.findLastIndex(m => m.thinking);
+        if (idx !== -1) u[idx] = { role:'fred', thinking:false,
+          text:data.text||data.error||"Fred couldn't connect.",
+          title:data.title||'', meta:data.meta||'', poster:data.poster||null };
+        return u;
       });
     } catch {
       setMessages(prev => {
-        const updated = [...prev];
-        const idx = updated.findLastIndex(m => m.thinking);
-        if (idx !== -1) updated[idx] = { role:'fred', thinking:false, text:"Fred couldn't connect. Try again.", title:'', meta:'' };
-        return updated;
+        const u = [...prev];
+        const idx = u.findLastIndex(m => m.thinking);
+        if (idx !== -1) u[idx] = { role:'fred', thinking:false, text:"Fred couldn't connect. Try again.", title:'', meta:'' };
+        return u;
       });
     } finally {
       setChatLoading(false);
@@ -212,58 +199,93 @@ export default function Fred() {
   return (
     <div className="app">
 
-      {/* ── TASTE (ex-Setup) ── */}
+      {/* ── TASTE ── */}
       <div className={`screen ${screen==='taste'?'active':''}`}>
-        <div className="setup-wrap">
-          <div className="logo">Fred</div>
-          <div className="logo-sub">Your film friend</div>
+        <div className="taste-wrap">
+          <div className="taste-logo">Fred</div>
+          <div className="taste-slogan">Your film friend</div>
+          <div className="taste-question">
+            What are you<br />
+            <strong>in the mood for</strong><br />
+            tonight?
+          </div>
+
+          <div className="t-divider" />
+
           <div className="sec-label">Your platforms</div>
-          <div className="chips">
-            {PLATFORMS.map(p => <div key={p} className={`chip ${platforms.includes(p)?'on':''}`} onClick={()=>togglePlatform(p)}>{p}</div>)}
+          <div className="platform-row">
+            {PLATFORMS.map(p => (
+              <div key={p} className={`plat-pill ${platforms.includes(p)?'on':''}`}
+                onClick={() => togglePlatform(p)}>{p}</div>
+            ))}
           </div>
-          <div className="sec-label">Tonight's mood</div>
-          <div className="chips">
-            {MOODS.map(m => <div key={m.value} className={`chip ${moods.includes(m.value)?'on':''}`} onClick={()=>toggleMood(m.value)}>{m.label}</div>)}
+
+          <div className="t-divider" />
+
+          <div className="mood-list">
+            {MOODS.map((m, i) => (
+              <div key={m.value} className={`mood-item ${moods.includes(m.value)?'on':''}`}
+                onClick={() => toggleMood(m.value)}>
+                <span className="mood-num">0{i+1}</span>
+                <span className="mood-name">{m.label}</span>
+                <span className="mood-check">
+                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor"><polyline points="2,6 5,9 10,3"/></svg>
+                </span>
+              </div>
+            ))}
           </div>
-          <button className="cta" onClick={loadPicks}>Fred, show me tonight's picks</button>
+
+          <button className="taste-cta" onClick={loadPicks}>
+            Show me tonight's picks →
+          </button>
         </div>
       </div>
 
       {/* ── TONIGHT ── */}
       <div className={`screen ${screen==='tonight'?'active':''}`}>
-        <div className="t-hdr">
-          <div className="screen-title">Tonight</div>
-          <div className="screen-sub">2 films · 1 series · curated for you</div>
+        <div className="topbar">
+          <div className="topbar-logo" onClick={() => go('taste')}>Fred</div>
+          <div className="topbar-right">Tonight</div>
         </div>
+        <div className="tonight-count">2 films · 1 series · curated for you</div>
+
         <div className="picks-wrap">
           {loading && <div className="loading"><div className="spinner"/><div className="load-txt">Fred is thinking…</div></div>}
-          {!loading && error && <div className="err-txt">{error}<br/><br/><button className="cta" style={{fontSize:'14px',padding:'12px'}} onClick={loadPicks}>Try again</button></div>}
+          {!loading && error && <div className="err-txt">{error}<br/><br/><button className="taste-cta" style={{fontSize:'14px',padding:'12px'}} onClick={loadPicks}>Try again</button></div>}
           {!loading && !error && picks.length===0 && <div className="loading"><div className="load-txt">No picks found — try different platforms or mood.</div></div>}
           {!loading && picks.map(pick => {
             const lbl = PICK_LABELS[pick.pick_type] || PICK_LABELS.safe;
             const bg  = bgClass(pick.title);
             const metaParts = [pick.year, pick.runtime, pick.type==='series'?'Series':'Film', pick.platform].filter(Boolean);
+            const trailerUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(pick.title + ' official trailer')}`;
             return (
               <div key={pick.id}>
-                <div className={`pick-label ${lbl.cls}`}>{lbl.label}</div>
+                <div className="pick-label-row">
+                  <span className={`pick-label ${lbl.cls}`}>{lbl.label}</span>
+                </div>
                 <div className="card">
                   <div className={`poster-wrap ${bg}`}>
                     <Poster poster={pick.poster} title={pick.title} bg={bg} />
                     <div className="poster-grad"/>
                     <div className="poster-title-ov">{pick.title}</div>
                     <div className="poster-tl">
-                      {pick.platform && <span className="platform-badge">{pick.platform}</span>}
+                      {pick.platform && <span className="bdg bdg-plat">{pick.platform}</span>}
                       {pick.letterboxd && <span className="bdg bdg-lb">↑ Letterboxd</span>}
-                      {pick.rating >= 8.3 && <span className="bdg bdg-top">Top rated</span>}
                     </div>
                     {pick.rating && <div className="poster-score"><div className="score-n">{Number(pick.rating).toFixed(1)}</div><div className="score-l">IMDB</div></div>}
+                    <a href={trailerUrl} target="_blank" rel="noopener noreferrer" className="trailer-btn" onClick={e => e.stopPropagation()}>
+                      <I.Play /> Trailer
+                    </a>
                   </div>
                   <div className="card-body">
                     <div className="card-meta">{metaParts.join(' · ')}</div>
+                    {pick.pick_type === 'wildcard' && pick.director_pick && (
+                      <div className="director-note">"{pick.director_quote}" — {pick.director_pick}</div>
+                    )}
                     {pick.fred_note && <div className="card-note">"{pick.fred_note}"</div>}
                   </div>
                   <div className="card-actions">
-                    <button className="ca sv" onClick={()=>saveToStack(pick)}><I.Bookmark /> Save</button>
+                    <button className="ca sv" onClick={() => saveToStack(pick)}><I.Bookmark /> Save</button>
                     <button className="ca" onClick={loadPicks}><I.Refresh /> More</button>
                     <button className="ca"><I.External /> Open</button>
                   </div>
@@ -276,13 +298,13 @@ export default function Fred() {
 
       {/* ── ASK FRED ── */}
       <div className={`screen ${screen==='ask'?'active':''}`} style={{paddingBottom:'130px'}} ref={chatRef}>
-        <div className="a-hdr">
-          <div className="screen-title">Ask Fred</div>
-          <div className="a-sub">What do you feel like?</div>
+        <div className="topbar">
+          <div className="topbar-logo" onClick={() => go('taste')}>Fred</div>
+          <div className="topbar-right">Ask Fred</div>
         </div>
         <div className="prompt-chips">
           {['Smart but not depressing','Under 45 minutes','Like The Bear but calmer',"I'm exhausted, easy pick"].map(p=>(
-            <div key={p} className="pc" onClick={()=>sendChat(p)}>{p}</div>
+            <div key={p} className="pc" onClick={() => sendChat(p)}>{p}</div>
           ))}
         </div>
         <div className="chat-area">
@@ -305,15 +327,15 @@ export default function Fred() {
         <div className="chat-bar">
           <input className="ci" value={chatInput} onChange={e=>setChatInput(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&sendChat()} placeholder="Ask Fred something specific…" disabled={chatLoading}/>
-          <button className="cs" onClick={()=>sendChat()} disabled={chatLoading}><I.Send /></button>
+          <button className="cs" onClick={() => sendChat()} disabled={chatLoading}><I.Send /></button>
         </div>
       </div>
 
-      {/* ── STACK ── */}
-      <div className={`screen ${screen==='stack'?'active':''}`}>
-        <div className="st-hdr">
-          <div className="screen-title">Your Stack</div>
-          <div className="a-sub" style={{marginTop:'4px'}}>Stuff you actually meant to watch.</div>
+      {/* ── WATCHLIST ── */}
+      <div className={`screen ${screen==='watchlist'?'active':''}`}>
+        <div className="topbar">
+          <div className="topbar-logo" onClick={() => go('taste')}>Fred</div>
+          <div className="topbar-right">Watchlist</div>
         </div>
         <div className="st-list">
           {stack.length===0 ? (
@@ -327,7 +349,7 @@ export default function Fred() {
                 <div className="si-title">{item.title}</div>
                 <div className="si-meta">{item.platform} · {item.runtime}</div>
               </div>
-              <button className="si-rm" onClick={()=>removeFromStack(item.id)}><I.X /></button>
+              <button className="si-rm" onClick={() => removeFromStack(item.id)}><I.X /></button>
             </div>
           ))}
         </div>
@@ -335,10 +357,10 @@ export default function Fred() {
 
       {/* ── NAV ── */}
       <nav className="nav">
-        <button className={`nv ${screen==='taste'?'active':''}`}   onClick={()=>go('taste')}>  <I.Home/>     </button>
-        <button className={`nv ${screen==='tonight'?'active':''}`} onClick={()=>go('tonight')}><I.Movie/>    Tonight </button>
-        <button className={`nv ${screen==='ask'?'active':''}`}     onClick={()=>go('ask')}>    <I.Chat/>     Ask Fred</button>
-        <button className={`nv ${screen==='stack'?'active':''}`}   onClick={()=>go('stack')}>  <I.Bookmark/> Stack   </button>
+        <button className={`nv ${screen==='taste'?'active':''}`}     onClick={() => go('taste')}>    <I.Search />   Search   </button>
+        <button className={`nv ${screen==='tonight'?'active':''}`}   onClick={() => go('tonight')}>  <I.Movie />    Tonight  </button>
+        <button className={`nv ${screen==='ask'?'active':''}`}       onClick={() => go('ask')}>      <I.Chat />     Ask Fred </button>
+        <button className={`nv ${screen==='watchlist'?'active':''}`} onClick={() => go('watchlist')}><I.Bookmark /> Watchlist</button>
       </nav>
     </div>
   );
