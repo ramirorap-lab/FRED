@@ -483,15 +483,14 @@ html, body {
   color: #fff; letter-spacing: -.02em; cursor: pointer;
 }
 .topbar-right {
-  font-size: 10px; color: #333;
+  font-size: 10px; color: #666;
   letter-spacing: .1em; text-transform: uppercase;
 }
 .tonight-count {
   padding: 6px 24px 0;
-  font-size: 10px; color: #333;
+  font-size: 10px; color: #666;
   letter-spacing: .08em; text-transform: uppercase;
 }
-
 /* ── PICK LABELS ── */
 .pick-label-row { display: flex; align-items: center; gap: 8px; padding: 18px 6px 8px; }
 .pick-label { font-size: 9px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; padding: 4px 9px; border-radius: 2px; }
@@ -592,7 +591,15 @@ html, body {
 .fred-save-btn:hover { color: var(--red); border-color: var(--red); }
 .fred-save-btn svg { width: 12px; height: 12px; stroke-width: 1.8; }
 /* ── PICK HEADER (new card layout) ── */
-.pick-header {
+..pick-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 6px 10px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+}
   display: flex;
   align-items: center;
   gap: 8px;
