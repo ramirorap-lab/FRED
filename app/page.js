@@ -18,6 +18,12 @@ const MOODS = [
   { label: 'Family',    value: 'family' },
 ];
 
+const PICK_LABELS = {
+  safe:     { label: "Fred's Pick",    cls: 'label-safe' },
+  stretch:  { label: 'Worth the Risk', cls: 'label-stretch' },
+  wildcard: { label: "Director's Pick", cls: 'label-director' },
+};
+
 function stripMd(text) {
   return (text || '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1');
 }
@@ -42,13 +48,6 @@ const I = {
   Play:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>,
 };
 
-const PICK_LABELS <div className="pick-header">
-  <span className={`pick-label ${lbl.cls}`}>{lbl.label}</span>
-  <span className="pick-sep">·</span>
-  <span className="plat-name">{pick.platform}</span>
-  <span className="pick-sep">·</span>
-  <span className="pick-meta-line">{[pick.year, pick.runtime, pick.type==='series'?'Series':'Film'].filter(Boolean).join(' · ')}</span>
-</div>
 function Poster({ poster, title, bg }) {
   const [failed, setFailed] = useState(false);
   return (
@@ -57,7 +56,7 @@ function Poster({ poster, title, bg }) {
       {poster && !failed && (
         <img src={`${TMDB}${poster}`} alt={title} className="poster-img"
           onError={() => setFailed(true)}
-          style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover' }} />
+          style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', objectPosition:'center top' }} />
       )}
     </>
   );
@@ -200,7 +199,7 @@ export default function Fred() {
   return (
     <div className="app">
 
-      {/* ── TASTE ── */}
+      {/* TASTE */}
       <div className={`screen ${screen==='taste'?'active':''}`}>
         <div className="taste-wrap">
           <div className="taste-logo">Fred</div>
@@ -210,9 +209,7 @@ export default function Fred() {
             <strong>in the mood for</strong><br />
             tonight?
           </div>
-
           <div className="t-divider" />
-
           <div className="sec-label">Your platforms</div>
           <div className="platform-row">
             {PLATFORMS.map(p => (
@@ -220,9 +217,7 @@ export default function Fred() {
                 onClick={() => togglePlatform(p)}>{p}</div>
             ))}
           </div>
-
           <div className="t-divider" />
-
           <div className="mood-list">
             {MOODS.map((m, i) => (
               <div key={m.value} className={`mood-item ${moods.includes(m.value)?'on':''}`}
@@ -235,21 +230,17 @@ export default function Fred() {
               </div>
             ))}
           </div>
-
-          <button className="taste-cta" onClick={loadPicks}>
-            Show me tonight's picks →
-          </button>
+          <button className="taste-cta" onClick={loadPicks}>Show me tonight's picks →</button>
         </div>
       </div>
 
-      {/* ── TONIGHT ── */}
+      {/* TONIGHT */}
       <div className={`screen ${screen==='tonight'?'active':''}`}>
         <div className="topbar">
           <div className="topbar-logo" onClick={() => go('taste')}>Fred</div>
           <div className="topbar-right">Tonight</div>
         </div>
         <div className="tonight-count">2 films · 1 series · curated for you</div>
-
         <div className="picks-wrap">
           {loading && <div className="loading"><div className="spinner"/><div className="load-txt">Fred is thinking…</div></div>}
           {!loading && error && <div className="err-txt">{error}<br/><br/><button className="taste-cta" style={{fontSize:'14px',padding:'12px'}} onClick={loadPicks}>Try again</button></div>}
@@ -257,29 +248,32 @@ export default function Fred() {
           {!loading && picks.map(pick => {
             const lbl = PICK_LABELS[pick.pick_type] || PICK_LABELS.safe;
             const bg  = bgClass(pick.title);
-            const metaParts = [pick.year, pick.runtime, pick.type==='series'?'Series':'Film', pick.platform].filter(Boolean);
             const trailerUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(pick.title + ' official trailer')}`;
             return (
               <div key={pick.id}>
-                <div className="pick-label-row">
+                <div className="pick-header">
                   <span className={`pick-label ${lbl.cls}`}>{lbl.label}</span>
+                  <span className="pick-sep">·</span>
+                  <span className="plat-name">{pick.platform}</span>
+                  <span className="pick-sep">·</span>
+                  <span className="pick-meta-line">{[pick.year, pick.runtime, pick.type==='series'?'Series':'Film'].filter(Boolean).join(' · ')}</span>
                 </div>
                 <div className="card">
                   <div className={`poster-wrap ${bg}`}>
                     <Poster poster={pick.poster} title={pick.title} bg={bg} />
                     <div className="poster-grad"/>
                     <div className="poster-title-ov">{pick.title}</div>
-                    <div className="poster-tl">
-                      {pick.platform && <span className="bdg bdg-plat">{pick.platform}</span>}
-                      {pick.letterboxd && <span className="bdg bdg-lb">↑ Letterboxd</span>}
-                    </div>
+                    {pick.letterboxd && (
+                      <div className="poster-tl">
+                        <span className="bdg bdg-lb">↑ Letterboxd</span>
+                      </div>
+                    )}
                     {pick.rating && <div className="poster-score"><div className="score-n">{Number(pick.rating).toFixed(1)}</div><div className="score-l">IMDB</div></div>}
                     <a href={trailerUrl} target="_blank" rel="noopener noreferrer" className="trailer-btn" onClick={e => e.stopPropagation()}>
                       <I.Play /> Trailer
                     </a>
                   </div>
                   <div className="card-body">
-                    <div className="card-meta">{metaParts.join(' · ')}</div>
                     {pick.pick_type === 'wildcard' && pick.director_pick && (
                       <div className="director-note">"{pick.director_quote}" — {pick.director_pick}</div>
                     )}
@@ -297,7 +291,7 @@ export default function Fred() {
         </div>
       </div>
 
-      {/* ── ASK FRED ── */}
+      {/* ASK FRED */}
       <div className={`screen ${screen==='ask'?'active':''}`} style={{paddingBottom:'130px'}} ref={chatRef}>
         <div className="topbar">
           <div className="topbar-logo" onClick={() => go('taste')}>Fred</div>
@@ -332,7 +326,7 @@ export default function Fred() {
         </div>
       </div>
 
-      {/* ── WATCHLIST ── */}
+      {/* WATCHLIST */}
       <div className={`screen ${screen==='watchlist'?'active':''}`}>
         <div className="topbar">
           <div className="topbar-logo" onClick={() => go('taste')}>Fred</div>
@@ -356,7 +350,7 @@ export default function Fred() {
         </div>
       </div>
 
-      {/* ── NAV ── */}
+      {/* NAV */}
       <nav className="nav">
         <button className={`nv ${screen==='taste'?'active':''}`}     onClick={() => go('taste')}>    <I.Search />   Search   </button>
         <button className={`nv ${screen==='tonight'?'active':''}`}   onClick={() => go('tonight')}>  <I.Movie />    Tonight  </button>
