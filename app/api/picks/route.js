@@ -214,6 +214,18 @@ Respond ONLY with valid JSON array, no markdown:
   return JSON.parse(text.replace(/```json|```/g, '').trim());
 }
 
+// Fetch real poster from TMDB using tmdb_id
+async function enrichPoster(tmdbId, type, token) {
+  if (!tmdbId || !token) return null;
+  try {
+    const endpoint = type === 'series'
+      ? `${TMDB}/tv/${tmdbId}?language=en-US`
+      : `${TMDB}/movie/${tmdbId}?language=en-US`;
+    const data = await tmdbFetch(endpoint, token);
+    return data?.poster_path || null;
+  } catch { return null; }
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const platforms    = (searchParams.get('platforms') || '').split(',').filter(Boolean);
@@ -273,7 +285,13 @@ export async function GET(request) {
       };
     });
 
-    return NextResponse.json({ picks: result });
+    // Enrich posters directly from TMDB (Claude's poster paths can be wrong)
+    const enriched = await Promise.all(result.map(async pick => {
+      const realPoster = await enrichPoster(pick.tmdb_id, pick.type, tmdbToken);
+      return { ...pick, poster: realPoster || pick.poster };
+    }));
+
+    return NextResponse.json({ picks: enriched });
 
   } catch (err) {
     console.error('Picks error:', err);
