@@ -58,11 +58,11 @@ function Poster({ poster, title, bg }) {
       {poster && !failed && (
         <img src={`${TMDB}${poster}`} alt={title} className="poster-img"
           onError={() => setFailed(true)}
-         style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', objectPosition:'center top', zIndex:1 }} />
+          style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', objectPosition:'center top', zIndex:1 }} />
+      )}
     </>
   );
 }
-
 function FredCard({ msg, onSave }) {
   const [posterFailed, setPosterFailed] = useState(false);
   const bg = bgClass(msg.title);
