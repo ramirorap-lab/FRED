@@ -118,11 +118,14 @@ html, body {
 .mood-item.on .mood-check svg { opacity: 1; }
 
 .taste-cta {
-  width: 100%; padding: 15px; background: var(--red);
-  color: #fff; border: none; border-radius: 2px;
+  width: 100%; padding: 14px;
+  background: var(--red); color: #fff; border: none;
   font-family: var(--font-display), sans-serif;
-  font-size: 18px; font-weight: 700; font-style: italic;
-  cursor: pointer; transition: opacity .2s; margin-bottom: 32px;
+  font-size: 15px; font-weight: 700; font-style: italic;
+  letter-spacing: .06em;
+  cursor: pointer; transition: opacity .2s;
+  border-radius: 8px;
+  margin-bottom: 32px;
 }
 .taste-cta:hover { opacity: .9; }
 
