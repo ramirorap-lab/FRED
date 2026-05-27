@@ -102,7 +102,7 @@ html, body {
 }
 .mood-name {
   font-family: var(--font-display), sans-serif;
-  font-size: 25px; font-weight: 700; color: #2a2a2a;
+  font-size: 25px; font-weight: 700; color: #444;
   flex: 1; padding: 0 12px; transition: color .15s;
   line-height: 1; letter-spacing: -.01em;
 }
@@ -118,14 +118,12 @@ html, body {
 .mood-item.on .mood-check svg { opacity: 1; }
 
 .taste-cta {
-  width: 100%; padding: 14px;
-  background: var(--red); color: #fff; border: none;
+  width: 100%; padding: 15px; background: var(--red);
+  color: #fff; border: none; border-radius: 8px;
   font-family: var(--font-display), sans-serif;
-  font-size: 15px; font-weight: 700; font-style: italic;
-  letter-spacing: .06em;
-  cursor: pointer; transition: opacity .2s;
-  border-radius: 8px;
-  margin-bottom: 32px;
+  font-size: 20px; font-weight: 900; font-style: italic;
+  letter-spacing: -.01em;
+  cursor: pointer; transition: opacity .2s; margin-bottom: 32px;
 }
 .taste-cta:hover { opacity: .9; }
 
@@ -186,14 +184,9 @@ html, body {
 
 .poster-wrap { width: 100%; height: 224px; position: relative; overflow: hidden; }
 .poster-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  width: 100%; height: 100%; object-fit: cover;
   object-position: center top;
-  display: block;
-  position: absolute;
-  top: 0;
-  left: 0;
+  display: block; position: absolute; top: 0; left: 0;
 }
 .poster-ph {
   width: 100%; height: 100%;
@@ -449,49 +442,3 @@ html, body {
 .bg-n{background:#100f1a}.bg-o{background:#1a1000}.bg-p{background:#1a0f2e}
 .bg-r{background:#12120a}.bg-s{background:#0a0f1a}.bg-t{background:#1a1510}
 .bg-w{background:#0a1a1a}.bg-z{background:#1a0808}
-/* ── LETTERBOXD UPLOAD ── */
-.lb-upload {
-  margin-bottom: 24px;
-  padding: 16px;
-  border: .5px solid #1e1e20;
-  border-radius: 4px;
-  background: #111113;
-}
-.lb-label {
-  font-size: 11px; font-weight: 600;
-  letter-spacing: .1em; text-transform: uppercase;
-  color: #888; margin-bottom: 6px;
-}
-.lb-sub {
-  font-size: 11px; color: #444;
-  line-height: 1.5; margin-bottom: 12px;
-}
-.lb-btn {
-  display: flex; align-items: center; gap: 7px;
-  padding: 9px 14px; background: none;
-  border: .5px solid #333; border-radius: 3px;
-  color: #888; font-family: var(--font-body), sans-serif;
-  font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
-  cursor: pointer; transition: all .15s;
-}
-.lb-btn:hover { border-color: #00c27a; color: #00c27a; }
-.lb-btn:disabled { opacity: .5; cursor: not-allowed; }
-.lb-btn svg { width: 14px; height: 14px; stroke-width: 1.8; }
-.lb-error { font-size: 11px; color: var(--red); margin-top: 8px; }
-.lb-done {
-  display: flex; align-items: center; gap: 8px;
-  padding: 12px 0; margin-bottom: 20px;
-  font-size: 11px; color: #00c27a;
-  letter-spacing: .06em; text-transform: uppercase;
-}
-.lb-done svg { width: 14px; height: 14px; stroke-width: 2.5; }
-
-/* ── TASTE BADGE (in tonight count) ── */
-.taste-badge {
-  margin-left: 8px;
-  font-size: 9px; font-weight: 600;
-  letter-spacing: .09em; text-transform: uppercase;
-  padding: 2px 7px; border-radius: 2px;
-  background: rgba(0,194,122,.1); color: #00c27a;
-  vertical-align: middle;
-}
