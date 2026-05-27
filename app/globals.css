@@ -441,40 +441,13 @@ html, body {
 .bg-n{background:#100f1a}.bg-o{background:#1a1000}.bg-p{background:#1a0f2e}
 .bg-r{background:#12120a}.bg-s{background:#0a0f1a}.bg-t{background:#1a1510}
 .bg-w{background:#0a1a1a}.bg-z{background:#1a0808}
-/* ── LETTERBOXD ── */
-.lb-upload {
-  margin-bottom: 24px;
-  padding: 16px;
-  border: .5px solid #1e1e20;
-  border-radius: 4px;
-  background: #111113;
+
+/* ── TYPE BADGES ── */
+.type-badge {
+  font-size: 9px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 2px;
+  flex-shrink: 0; white-space: nowrap;
 }
-.lb-label {
-  font-size: 11px; font-weight: 600;
-  letter-spacing: .1em; text-transform: uppercase;
-  color: #888; margin-bottom: 6px;
-}
-.lb-sub {
-  font-size: 11px; color: #444;
-  line-height: 1.5; margin-bottom: 12px;
-}
-.lb-btn {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 8px 14px; background: none;
-  border: .5px solid #333; border-radius: 3px;
-  color: #666; font-family: var(--font-body), sans-serif;
-  font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
-  cursor: pointer; transition: all .15s;
-  -webkit-appearance: none; appearance: none;
-}
-.lb-btn:hover { border-color: #00c27a; color: #00c27a; }
-.lb-btn:disabled { opacity: .5; cursor: not-allowed; }
-.lb-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
-.lb-error { font-size: 11px; color: var(--red); margin-top: 8px; }
-.lb-done {
-  display: flex; align-items: center; gap: 8px;
-  padding: 12px 0; margin-bottom: 20px;
-  font-size: 11px; color: #00c27a;
-  letter-spacing: .06em; text-transform: uppercase;
-}
-.lb-done svg { width: 14px; height: 14px; }
+.type-film   { color: #888; background: rgba(255,255,255,.06); }
+.type-series { color: #7eb8f7; background: rgba(126,184,247,.1); }
