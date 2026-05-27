@@ -291,7 +291,7 @@ export default function Fred() {
             setTasteProfile(profile);
           }} />
           <button className="taste-cta" onClick={loadPicks}>
-            Tonight's picks
+            Fred's picks
           </button>
         </div>
       </div>
@@ -300,10 +300,10 @@ export default function Fred() {
       <div className={`screen ${screen==='tonight'?'active':''}`}>
         <div className="topbar">
           <div className="topbar-logo" onClick={() => go('taste')}>Fred</div>
-          <div className="topbar-right">Tonight</div>
+          <div className="topbar-right">Picks</div>
         </div>
         <div className="tonight-count">
-          2 films · 1 series · curated for you
+          2 films · 1 series
           {tasteProfile && <span className="taste-badge">↑ Letterboxd</span>}
         </div>
         <div className="picks-wrap">
@@ -441,7 +441,7 @@ export default function Fred() {
       {/* NAV */}
       <nav className="nav">
         <button className={`nv ${screen==='taste'?'active':''}`}     onClick={() => go('taste')}>    <I.Search />   Search   </button>
-        <button className={`nv ${screen==='tonight'?'active':''}`}   onClick={() => go('tonight')}>  <I.Movie />    Tonight  </button>
+        <button className={`nv ${screen==='tonight'?'active':''}`}   onClick={() => go('tonight')}>  <I.Movie />    Picks    </button>
         <button className={`nv ${screen==='ask'?'active':''}`}       onClick={() => go('ask')}>      <I.Chat />     Ask Fred </button>
         <button className={`nv ${screen==='watchlist'?'active':''}`} onClick={() => go('watchlist')}><I.Bookmark /> Watchlist</button>
       </nav>
