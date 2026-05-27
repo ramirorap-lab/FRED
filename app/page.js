@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react'; import Image from 'next/image';
 
 const TMDB = 'https://image.tmdb.org/t/p/w500';
 const DEFAULT_PLATFORMS = ['Netflix', 'Prime Video'];
