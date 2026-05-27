@@ -489,3 +489,11 @@ html, body {
   letter-spacing: .06em; text-transform: uppercase;
 }
 .lb-done svg { width: 14px; height: 14px; }
+
+/* ── SEEN IT ── */
+.ca-seen-active {
+  color: #00c27a !important;
+}
+.ca-seen-active svg {
+  stroke: #00c27a;
+}
