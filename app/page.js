@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react'; 
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 const TMDB = 'https://image.tmdb.org/t/p/w500';
 const DEFAULT_PLATFORMS = ['Netflix', 'Prime Video'];
@@ -50,14 +50,23 @@ const I = {
   Check:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg>,
 };
 
-{poster && !failed && (
-  <img
-    src={`https://image.tmdb.org/t/p/w500${poster}`}
-    alt={title}
-    className="poster-img"
-    onError={() => setFailed(true)}
-  />
-)}
+function Poster({ poster, title, bg }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <>
+      <div className={`poster-ph ${bg}`}>{title?.charAt(0)}</div>
+      {poster && !failed && (
+        <img
+          src={`https://image.tmdb.org/t/p/w500${poster}`}
+          alt={title}
+          className="poster-img"
+          onError={() => setFailed(true)}
+        />
+      )}
+    </>
+  );
+}
+
 function FredCard({ msg, onSave }) {
   const [posterFailed, setPosterFailed] = useState(false);
   const bg = bgClass(msg.title);
@@ -319,11 +328,11 @@ export default function Fred() {
             return (
               <div key={pick.id}>
                 <div className="pick-header">
-                 <span className={`pick-label ${lbl.cls}`}>
-  {pick.pick_type === 'wildcard' && pick.director_name
-    ? `${pick.director_name.split(' ').pop()}'s Pick`
-    : lbl.label}
-</span>
+                  <span className={`pick-label ${lbl.cls}`}>
+                    {pick.pick_type === 'wildcard' && pick.director_name
+                      ? `${pick.director_name.split(' ').pop()}'s Pick`
+                      : lbl.label}
+                  </span>
                   <span className="pick-sep">·</span>
                   <span className="plat-name">{pick.platform}</span>
                   <span className="pick-sep">·</span>
@@ -350,8 +359,8 @@ export default function Fred() {
                     </a>
                   </div>
                   <div className="card-body">
-                    {pick.pick_type === 'wildcard' && pick.director_pick && (
-                      <div className="director-note">"{pick.director_quote}" — {pick.director_pick}</div>
+                    {pick.pick_type === 'wildcard' && pick.director_quote && (
+                      <div className="director-note">"{pick.director_quote}" — {pick.director_name}</div>
                     )}
                     {pick.fred_note && <div className="card-note">"{pick.fred_note}"</div>}
                   </div>
