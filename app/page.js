@@ -36,6 +36,20 @@ function bgClass(title) {
   return m[l] || 'bg-s';
 }
 
+function platformUrl(platform, title) {
+  const t = encodeURIComponent(title || '');
+  const urls = {
+    'Netflix':     `https://www.netflix.com/search?q=${t}`,
+    'Prime Video': `https://www.amazon.com/s?k=${t}&i=instant-video`,
+    'Hulu':        `https://www.hulu.com/search?query=${t}`,
+    'Max':         `https://play.max.com/search?q=${t}`,
+    'Apple TV+':   `https://tv.apple.com/search?term=${t}`,
+    'Disney+':     `https://www.disneyplus.com/search/${t}`,
+    'Peacock':     `https://www.peacocktv.com/search?q=${t}`,
+  };
+  return urls[platform] || `https://www.google.com/search?q=${t}+streaming`;
+}
+
 const I = {
   Bookmark: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
   Refresh:  () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>,
@@ -173,6 +187,8 @@ export default function Fred() {
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState('');
   const [stack,        setStack]        = useState([]);
+  const [flippingId,   setFlippingId]   = useState(null);
+  const [flippedIn,    setFlippedIn]    = useState(null);
   const [watched,      setWatched]      = useState(() => {
     if (typeof window === 'undefined') return [];
     try { return JSON.parse(localStorage.getItem('fred_watched') || '[]'); } catch { return []; }
@@ -236,9 +252,9 @@ export default function Fred() {
   }
 
   async function seenAndReplace(pick) {
-    // Mark as watched
     markWatched(pick);
-    // Fetch a replacement of the same type
+    // Phase 1: flip out
+    setFlippingId(pick.id);
     const newWatched = [...watched, { id: pick.tmdb_id || pick.id, title: pick.title, type: pick.type }];
     const excludeAll = [...picks, ...newWatched].map(p => p.tmdb_id || p.id).filter(Boolean);
     try {
@@ -249,14 +265,21 @@ export default function Fred() {
         exclude:   excludeAll.join(','),
         ...(tasteProfile && { taste: encodeURIComponent(JSON.stringify(tasteProfile)) }),
       });
-      const res  = await fetch(`/api/picks?${params}`);
+      const res = await fetch(`/api/picks?${params}`);
       const data = await res.json();
       if (data.picks?.length) {
         const replacement = data.picks.find(p => p.type === pick.type) || data.picks[0];
-        setPicks(prev => prev.map(p => (p.id === pick.id ? { ...replacement } : p)));
+        // Swap content at midpoint of flip
+        setTimeout(() => {
+          setPicks(prev => prev.map(p => (p.id === pick.id ? { ...replacement } : p)));
+          setFlippingId(null);
+          setFlippedIn(replacement.id);
+          setTimeout(() => setFlippedIn(null), 500);
+        }, 320);
       }
     } catch (e) {
       console.error('Replace failed', e);
+      setFlippingId(null);
     }
   }
 
@@ -375,7 +398,7 @@ export default function Fred() {
             const bg  = bgClass(pick.title);
             const trailerUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(pick.title + ' official trailer')}`;
             return (
-              <div key={pick.id}>
+              <div key={pick.id} className={`pick-block ${flippingId === pick.id ? 'is-flipping' : ''} ${flippedIn === pick.id ? 'is-flipped-in' : ''}`}>
                 <div className="pick-header">
                   <span className={`pick-label ${lbl.cls}`}>
                     {pick.pick_type === 'wildcard' && pick.director_name
@@ -423,7 +446,7 @@ export default function Fred() {
                       onClick={() => !isWatched(pick) && seenAndReplace(pick)}>
                       <I.Eye /> {isWatched(pick) ? 'Seen ✓' : 'Seen it'}
                     </button>
-                    <button className="ca"><I.External /> Open</button>
+                    <a className="ca" href={platformUrl(pick.platform, pick.title)} target="_blank" rel="noopener noreferrer"><I.External /> Open</a>
                   </div>
                 </div>
               </div>
