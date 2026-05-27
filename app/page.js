@@ -50,18 +50,16 @@ const I = {
   Check:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg>,
 };
 
-function Poster({ poster, title, bg }) {
-  const [failed, setFailed] = useState(false);
-  return (
-    <>
-      <div className={`poster-ph ${bg}`}>{title?.charAt(0)}</div>
-      {poster && !failed && (
-        <img src={`${TMDB}${poster}`} alt={title} className="poster-img"
-          onError={() => setFailed(true)} />
-      )}
-    </>
-  );
-}
+{poster && !failed && (
+  <Image
+    src={`${TMDB}${poster}`}
+    alt={title}
+    fill
+    className="poster-img"
+    style={{ objectFit:'cover', objectPosition:'center top' }}
+    onError={() => setFailed(true)}
+  />
+)}
 function FredCard({ msg, onSave }) {
   const [posterFailed, setPosterFailed] = useState(false);
   const bg = bgClass(msg.title);
