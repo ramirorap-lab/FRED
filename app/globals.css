@@ -591,3 +591,33 @@ html, body {
 .fred-save-btn { display: flex; align-items: center; gap: 5px; background: none; border: .5px solid var(--border); border-radius: 3px; padding: 6px 10px; color: var(--muted); font-family: var(--font-body), sans-serif; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: all .15s; }
 .fred-save-btn:hover { color: var(--red); border-color: var(--red); }
 .fred-save-btn svg { width: 12px; height: 12px; stroke-width: 1.8; }
+/* ── PICK HEADER (new card layout) ── */
+.pick-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 6px 10px;
+}
+.pick-sep {
+  color: #333;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.plat-name {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #888;
+  flex-shrink: 0;
+}
+.pick-meta-line {
+  font-size: 10px;
+  font-weight: 500;
+  color: #666;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
