@@ -291,7 +291,7 @@ export default function Fred() {
             setTasteProfile(profile);
           }} />
           <button className="taste-cta" onClick={loadPicks}>
-            Show me tonight's picks →
+            Tonight's picks
           </button>
         </div>
       </div>
