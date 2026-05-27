@@ -4,13 +4,13 @@ const TMDB   = 'https://api.themoviedb.org/3';
 const ANTHRO = 'https://api.anthropic.com/v1/messages';
 
 const MOOD_GENRES = {
-  smart:     { movie: [18, 99],        tv: [18, 99] },
+  smart:     { movie: [18, 99, 9648],  tv: [18, 99] },
   dark:      { movie: [53, 80, 27],    tv: [53, 80] },
   funny:     { movie: [35],            tv: [35] },
   romantic:  { movie: [10749, 18],     tv: [18] },
   intense:   { movie: [28, 53],        tv: [10759, 53] },
   horror:    { movie: [27, 53],        tv: [9648, 27] },
-  adventure: { movie: [12, 28],        tv: [10759, 12] },
+  adventure: { movie: [12, 14, 37],    tv: [10759, 12] },
   family:    { movie: [10751, 16, 35], tv: [10751, 16] },
 };
 
@@ -183,6 +183,9 @@ STRICT RULES:
 - NO duplicate titles. Every title must be unique.
 - Match mood precisely.
 - Variety: the 2 movies must feel different from each other.
+- For "adventure" mood: think Indiana Jones, The Goonies, Jurassic Park, Lord of the Rings — thrilling journeys, exotic locations, quests, survival, discovery. NOT superhero films, NOT franchise action.
+- For "horror" mood: prefer psychological, atmospheric, or elevated horror over pure gore.
+- For "smart" mood: think complex dramas, independent films, festival winners, foreign language films, documentaries — cerebral, challenging, rewarding cinema.
 - fred_note: direct, warm, witty. Max 18 words. Never generic.
 - letterboxd: true if rating >= 7.4 and votes >= 1500
 - For Director Pick: set pick_type to "wildcard", include director_name and director_quote
