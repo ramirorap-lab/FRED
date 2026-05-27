@@ -1,9 +1,10 @@
-import { Big_Shoulders_Display, Barlow } from 'next/font/google';
+import { Big_Shoulders_Display, Barlow, Playfair_Display } from 'next/font/google';
 import './globals.css';
 
-const bigShoulders = Big_Shoulders_Display({
+const playfair = Playfair_Display({
   subsets: ['latin'],
-  weight: ['700', '800', '900'],
+  weight: ['400', '700', '900'],
+  style: ['normal', 'italic'],
   variable: '--font-display',
 });
 
@@ -17,12 +18,17 @@ const barlow = Barlow({
 export const metadata = {
   title: 'Fred — Your Film Friend',
   description: 'Find something worth watching tonight.',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${bigShoulders.variable} ${barlow.variable}`}>
+    <html lang="en" className={`${playfair.variable} ${barlow.variable}`}>
       <body>{children}</body>
     </html>
   );
