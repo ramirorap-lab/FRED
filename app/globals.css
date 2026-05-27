@@ -591,18 +591,13 @@ html, body {
 .fred-save-btn:hover { color: var(--red); border-color: var(--red); }
 .fred-save-btn svg { width: 12px; height: 12px; stroke-width: 1.8; }
 /* ── PICK HEADER (new card layout) ── */
-..pick-header {
+.pick-header {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 18px 6px 10px;
   flex-wrap: nowrap;
   overflow: hidden;
-}
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 18px 6px 10px;
 }
 .pick-sep {
   color: #333;
