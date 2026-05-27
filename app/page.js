@@ -46,6 +46,8 @@ const I = {
   Search:   () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   Chat:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   Play:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>,
+  Upload:   () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+  Check:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg>,
 };
 
 function Poster({ poster, title, bg }) {
@@ -75,7 +77,7 @@ function FredCard({ msg, onSave }) {
             {msg.poster && !posterFailed && (
               <img src={`${TMDB}${msg.poster}`} alt={msg.title}
                 onError={() => setPosterFailed(true)}
-                style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', borderRadius:'4px 4px 0 0' }} />
+                style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover' }} />
             )}
             <div className="fred-pick-grad" />
             <div className="fred-pick-title-ov">{msg.title}</div>
@@ -88,6 +90,52 @@ function FredCard({ msg, onSave }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function LetterboxdUpload({ onProfileLoaded }) {
+  const [uploading, setUploading]   = useState(false);
+  const [done,      setDone]        = useState(false);
+  const [error,     setError]       = useState('');
+  const fileRef = useRef(null);
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true); setError('');
+    try {
+      const form = new FormData();
+      form.append('ratings', file);
+      const res  = await fetch('/api/letterboxd', { method: 'POST', body: form });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      onProfileLoaded(data.profile);
+      setDone(true);
+    } catch (e) {
+      setError(e.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  if (done) return (
+    <div className="lb-done">
+      <I.Check />
+      <span>Letterboxd connected — Fred knows your taste</span>
+    </div>
+  );
+
+  return (
+    <div className="lb-upload">
+      <div className="lb-label">Personalize with Letterboxd</div>
+      <div className="lb-sub">Export your data from letterboxd.com/settings/data and upload ratings.csv</div>
+      <button className="lb-btn" onClick={() => fileRef.current?.click()} disabled={uploading}>
+        <I.Upload />
+        {uploading ? 'Analyzing…' : 'Upload ratings.csv'}
+      </button>
+      {error && <div className="lb-error">{error}</div>}
+      <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}} onChange={handleFile} />
     </div>
   );
 }
@@ -113,24 +161,29 @@ function Intro({ onDone }) {
 }
 
 export default function Fred() {
-  const [showIntro,   setShowIntro]   = useState(true);
-  const [screen,      setScreen]      = useState('taste');
-  const [platforms,   setPlatforms]   = useState(DEFAULT_PLATFORMS);
-  const [moods,       setMoods]       = useState(DEFAULT_MOODS);
-  const [picks,       setPicks]       = useState([]);
-  const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState('');
-  const [stack,       setStack]       = useState([]);
-  const [messages,    setMessages]    = useState([]);
-  const [chatInput,   setChatInput]   = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
+  const [showIntro,    setShowIntro]    = useState(true);
+  const [screen,       setScreen]       = useState('taste');
+  const [platforms,    setPlatforms]    = useState(DEFAULT_PLATFORMS);
+  const [moods,        setMoods]        = useState(DEFAULT_MOODS);
+  const [picks,        setPicks]        = useState([]);
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState('');
+  const [stack,        setStack]        = useState([]);
+  const [messages,     setMessages]     = useState([]);
+  const [chatInput,    setChatInput]    = useState('');
+  const [chatLoading,  setChatLoading]  = useState(false);
+  const [tasteProfile, setTasteProfile] = useState(null);
   const chatRef = useRef(null);
 
-  const fetchPicks = useCallback(async (plats, mds) => {
+  const fetchPicks = useCallback(async (plats, mds, profile) => {
     if (!plats.length) return;
     setLoading(true); setError(''); setPicks([]);
     try {
-      const params = new URLSearchParams({ platforms: plats.join(','), moods: mds.join(',') });
+      const params = new URLSearchParams({
+        platforms: plats.join(','),
+        moods:     mds.join(','),
+        ...(profile && { taste: encodeURIComponent(JSON.stringify(profile)) }),
+      });
       const res  = await fetch(`/api/picks?${params}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -140,12 +193,12 @@ export default function Fred() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchPicks(DEFAULT_PLATFORMS, DEFAULT_MOODS); }, [fetchPicks]);
+  useEffect(() => { fetchPicks(DEFAULT_PLATFORMS, DEFAULT_MOODS, null); }, [fetchPicks]);
 
-  function go(name) { setScreen(name); }
+  function go(name)          { setScreen(name); }
   function togglePlatform(p) { setPlatforms(prev => prev.includes(p) ? prev.filter(x=>x!==p) : [...prev,p]); }
   function toggleMood(m)     { setMoods(prev => prev.includes(m) ? prev.filter(x=>x!==m) : [...prev,m]); }
-  function loadPicks()       { go('tonight'); fetchPicks(platforms, moods); }
+  function loadPicks()       { go('tonight'); fetchPicks(platforms, moods, tasteProfile); }
 
   function saveToStack(pick) {
     const id = pick.id || pick.title;
@@ -170,7 +223,7 @@ export default function Fred() {
     try {
       const res = await fetch('/api/ask', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ message:t, platforms, moods }),
+        body:JSON.stringify({ message:t, platforms, moods, tasteProfile }),
       });
       const data = await res.json();
       setMessages(prev => {
@@ -230,7 +283,13 @@ export default function Fred() {
               </div>
             ))}
           </div>
-          <button className="taste-cta" onClick={loadPicks}>Show me tonight's picks →</button>
+          <div className="t-divider" />
+          <LetterboxdUpload onProfileLoaded={profile => {
+            setTasteProfile(profile);
+          }} />
+          <button className="taste-cta" onClick={loadPicks}>
+            Show me tonight's picks →
+          </button>
         </div>
       </div>
 
@@ -240,11 +299,25 @@ export default function Fred() {
           <div className="topbar-logo" onClick={() => go('taste')}>Fred</div>
           <div className="topbar-right">Tonight</div>
         </div>
-        <div className="tonight-count">2 films · 1 series · curated for you</div>
+        <div className="tonight-count">
+          2 films · 1 series · curated for you
+          {tasteProfile && <span className="taste-badge">↑ Letterboxd</span>}
+        </div>
         <div className="picks-wrap">
-          {loading && <div className="loading"><div className="spinner"/><div className="load-txt">Fred is thinking…</div></div>}
-          {!loading && error && <div className="err-txt">{error}<br/><br/><button className="taste-cta" style={{fontSize:'14px',padding:'12px'}} onClick={loadPicks}>Try again</button></div>}
-          {!loading && !error && picks.length===0 && <div className="loading"><div className="load-txt">No picks found — try different platforms or mood.</div></div>}
+          {loading && (
+            <div className="loading">
+              <div className="spinner"/>
+              <div className="load-txt">Fred is thinking…</div>
+            </div>
+          )}
+          {!loading && error && (
+            <div className="err-txt">{error}<br/><br/>
+              <button className="taste-cta" style={{fontSize:'14px',padding:'12px'}} onClick={loadPicks}>Try again</button>
+            </div>
+          )}
+          {!loading && !error && picks.length===0 && (
+            <div className="loading"><div className="load-txt">No picks found — try different platforms or mood.</div></div>
+          )}
           {!loading && picks.map(pick => {
             const lbl = PICK_LABELS[pick.pick_type] || PICK_LABELS.safe;
             const bg  = bgClass(pick.title);
@@ -268,7 +341,12 @@ export default function Fred() {
                         <span className="bdg bdg-lb">↑ Letterboxd</span>
                       </div>
                     )}
-                    {pick.rating && <div className="poster-score"><div className="score-n">{Number(pick.rating).toFixed(1)}</div><div className="score-l">IMDB</div></div>}
+                    {pick.rating && (
+                      <div className="poster-score">
+                        <div className="score-n">{Number(pick.rating).toFixed(1)}</div>
+                        <div className="score-l">IMDB</div>
+                      </div>
+                    )}
                     <a href={trailerUrl} target="_blank" rel="noopener noreferrer" className="trailer-btn" onClick={e => e.stopPropagation()}>
                       <I.Play /> Trailer
                     </a>
@@ -334,7 +412,10 @@ export default function Fred() {
         </div>
         <div className="st-list">
           {stack.length===0 ? (
-            <div className="empty"><div className="empty-icon"><I.Bookmark /></div><div className="empty-text">Nothing saved yet.<br/>Save picks from Tonight or Ask Fred.</div></div>
+            <div className="empty">
+              <div className="empty-icon"><I.Bookmark /></div>
+              <div className="empty-text">Nothing saved yet.<br/>Save picks from Tonight or Ask Fred.</div>
+            </div>
           ) : stack.map(item=>(
             <div className="si" key={item.id}>
               {item.poster ? <img src={`${TMDB}${item.poster}`} alt={item.title} className="si-img" onError={e=>{e.target.style.display='none';}}/>
