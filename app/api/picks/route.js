@@ -46,7 +46,11 @@ async function tmdbFetch(url, token) {
 async function searchFilm(title, year, token) {
   const q = encodeURIComponent(title);
   const data = await tmdbFetch(`${TMDB}/search/movie?query=${q}&year=${year}&language=en-US`, token);
-  return data?.results?.[0] || null;
+const film = data?.results?.[0];
+if (!film) return null;
+// Fetch full details to get best poster
+const details = await tmdbFetch(`${TMDB}/movie/${film.id}?language=en-US`, token);
+return details || film;
 }
 
 // Check if a TMDB movie is available on given platforms
