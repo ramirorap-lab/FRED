@@ -223,12 +223,30 @@ Respond ONLY with valid JSON array, no markdown:
 
 // Get real platform for a title
 async function enrichPlatform(tmdbId, type, title, year, platformIds, token) {
-  if (!token) return null;
+  // Try JustWatch first (real-time, accurate)
   try {
-    // Get real tmdb_id from title search
-    let realId = tmdbId;
+    const platformNames = platformIds.map(id => {
+      const m = { 8:'Netflix', 9:'Prime Video', 15:'Hulu', 384:'Max', 350:'Apple TV+', 337:'Disney+', 386:'Peacock' };
+      return m[id];
+    }).filter(Boolean);
+
+    const jwParams = new URLSearchParams({
+      title, year: year || '', type,
+      platforms: platformNames.join(','),
+    });
+    const jwRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://fred-psi.vercel.app'}/api/justwatch?${jwParams}`);
+    if (jwRes.ok) {
+      const jwData = await jwRes.json();
+      if (jwData?.platform) return jwData.platform;
+    }
+  } catch (e) {
+    console.log('JustWatch fallback to TMDB:', e.message);
+  }
+
+  // Fallback: TMDB watch providers
+  try {
     const result = await enrichByTitle(type, title, year, token);
-    if (result?.id) realId = result.id;
+    const realId = result?.id || tmdbId;
     if (!realId) return null;
     const endpoint = type === 'series'
       ? `${TMDB}/tv/${realId}/watch/providers`
