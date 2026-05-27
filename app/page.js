@@ -42,12 +42,13 @@ const I = {
   Play:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>,
 };
 
-const PICK_LABELS = {
-  safe:     { label: "Fred's Pick",    cls: 'label-safe' },
-  stretch:  { label: 'Worth the Risk', cls: 'label-stretch' },
-  wildcard: { label: "Director's Pick", cls: 'label-director' },
-};
-
+const PICK_LABELS <div className="pick-header">
+  <span className={`pick-label ${lbl.cls}`}>{lbl.label}</span>
+  <span className="pick-sep">·</span>
+  <span className="plat-name">{pick.platform}</span>
+  <span className="pick-sep">·</span>
+  <span className="pick-meta-line">{[pick.year, pick.runtime, pick.type==='series'?'Series':'Film'].filter(Boolean).join(' · ')}</span>
+</div>
 function Poster({ poster, title, bg }) {
   const [failed, setFailed] = useState(false);
   return (
