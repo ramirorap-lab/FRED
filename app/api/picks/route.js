@@ -46,11 +46,7 @@ async function tmdbFetch(url, token) {
 async function searchFilm(title, year, token) {
   const q = encodeURIComponent(title);
   const data = await tmdbFetch(`${TMDB}/search/movie?query=${q}&year=${year}&language=en-US`, token);
-const film = data?.results?.[0];
-if (!film) return null;
-// Fetch full details to get best poster
-const details = await tmdbFetch(`${TMDB}/movie/${film.id}?language=en-US`, token);
-return details || film;
+  return data?.results?.[0] || null;
 }
 
 // Check if a TMDB movie is available on given platforms
@@ -182,8 +178,11 @@ Pick exactly 3 total:
 
 ${directorCandidates.length ? 'IMPORTANT: Replace the stretch movie with a Director Pick from the list above. Use director_name and director_quote from that list.' : ''}
 
-Rules:
-- Match mood. Variety between picks.
+STRICT RULES:
+- Return EXACTLY 3 items: 2 movies + 1 series. No exceptions.
+- NO duplicate titles. Every title must be unique.
+- Match mood precisely.
+- Variety: the 2 movies must feel different from each other.
 - fred_note: direct, warm, witty. Max 18 words. Never generic.
 - letterboxd: true if rating >= 7.4 and votes >= 1500
 - For Director Pick: set pick_type to "wildcard", include director_name and director_quote
@@ -239,7 +238,21 @@ export async function GET(request) {
 
     const picks = await curateWithClaude(regular, directorCandidates, platforms, moods, tasteProfile, anthropicKey);
 
-    const result = picks.slice(0, 3).map(pick => {
+    // Enforce 2 movies + 1 series, no duplicates
+    const seen = new Set();
+    const movies = [];
+    const series = [];
+    for (const pick of picks) {
+      const key = (pick.title || '').toLowerCase().trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      if (pick.type === 'series' && series.length < 1) series.push(pick);
+      else if (pick.type === 'movie' && movies.length < 2) movies.push(pick);
+      if (movies.length === 2 && series.length === 1) break;
+    }
+    const ordered = [...movies, ...series];
+
+    const result = ordered.map(pick => {
       // For director picks, use the data we already have
       const dirMatch = directorCandidates.find(d => d.title.toLowerCase() === pick.title.toLowerCase());
       return {
