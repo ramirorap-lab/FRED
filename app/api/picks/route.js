@@ -215,12 +215,17 @@ Respond ONLY with valid JSON array, no markdown:
 }
 
 // Get real platform for a title
-async function enrichPlatform(tmdbId, type, platformIds, token) {
-  if (!tmdbId || !token) return null;
+async function enrichPlatform(tmdbId, type, title, year, platformIds, token) {
+  if (!token) return null;
   try {
+    // Get real tmdb_id from title search
+    let realId = tmdbId;
+    const result = await enrichByTitle(type, title, year, token);
+    if (result?.id) realId = result.id;
+    if (!realId) return null;
     const endpoint = type === 'series'
-      ? `${TMDB}/tv/${tmdbId}/watch/providers`
-      : `${TMDB}/movie/${tmdbId}/watch/providers`;
+      ? `${TMDB}/tv/${realId}/watch/providers`
+      : `${TMDB}/movie/${realId}/watch/providers`;
     const data = await tmdbFetch(endpoint, token);
     const us = data?.results?.US;
     if (!us) return null;
@@ -233,28 +238,31 @@ async function enrichPlatform(tmdbId, type, platformIds, token) {
 }
 
 // Fetch real poster from TMDB using tmdb_id
+async function enrichByTitle(type, title, year, token) {
+  if (!token || !title) return null;
+  try {
+    const q = encodeURIComponent(title);
+    const url = type === 'series'
+      ? `${TMDB}/search/tv?query=${q}&language=en-US`
+      : `${TMDB}/search/movie?query=${q}&year=${year}&language=en-US`;
+    const search = await tmdbFetch(url, token);
+    if (!search?.results?.length) return null;
+    // Find best match - exact title first, then first result
+    const results = search.results;
+    const exact = results.find(r => {
+      const t = (type === 'series' ? r.name : r.title) || '';
+      return t.toLowerCase() === title.toLowerCase();
+    });
+    return exact || results[0];
+  } catch { return null; }
+}
+
 async function enrichPoster(tmdbId, type, title, year, token) {
   if (!token) return null;
   try {
-    if (tmdbId) {
-      const endpoint = type === 'series'
-        ? `${TMDB}/tv/${tmdbId}?language=en-US`
-        : `${TMDB}/movie/${tmdbId}?language=en-US`;
-      const data = await tmdbFetch(endpoint, token);
-      if (data?.poster_path) return data.poster_path;
-    }
-    // Fallback: search by title + year
-    const q = encodeURIComponent(title || '');
-    const searchUrl = type === 'series'
-      ? `${TMDB}/search/tv?query=${q}&language=en-US`
-      : `${TMDB}/search/movie?query=${q}&year=${year}&language=en-US`;
-    const search = await tmdbFetch(searchUrl, token);
-    const result = search?.results?.[0];
-    const found = type === 'series' ? result?.name : result?.title;
-    if (found?.toLowerCase() === title?.toLowerCase()) {
-      return result?.poster_path || null;
-    }
-    return null;
+    // Always search by title for accuracy — Claude's tmdb_ids are unreliable
+    const result = await enrichByTitle(type, title, year, token);
+    return result?.poster_path || null;
   } catch { return null; }
 }
 
@@ -322,7 +330,7 @@ export async function GET(request) {
     const enriched = await Promise.all(result.map(async pick => {
       const [realPoster, realPlatform] = await Promise.all([
         enrichPoster(pick.tmdb_id, pick.type, pick.title, pick.year, tmdbToken),
-        enrichPlatform(pick.tmdb_id, pick.type, platformIds, tmdbToken),
+        enrichPlatform(pick.tmdb_id, pick.type, pick.title, pick.year, platformIds, tmdbToken),
       ]);
       return {
         ...pick,
