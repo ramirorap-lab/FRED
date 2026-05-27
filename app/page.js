@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react'; import Image from 'next/image';
+import { useState, useRef, useEffect, useCallback } from 'react'; 
 
 const TMDB = 'https://image.tmdb.org/t/p/w500';
 const DEFAULT_PLATFORMS = ['Netflix', 'Prime Video'];
@@ -51,12 +51,10 @@ const I = {
 };
 
 {poster && !failed && (
-  <Image
-    src={`${TMDB}${poster}`}
+  <img
+    src={`https://image.tmdb.org/t/p/w500${poster}`}
     alt={title}
-    fill
     className="poster-img"
-    style={{ objectFit:'cover', objectPosition:'center top' }}
     onError={() => setFailed(true)}
   />
 )}
