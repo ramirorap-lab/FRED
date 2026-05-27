@@ -46,6 +46,7 @@ const I = {
   Search:   () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   Chat:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   Play:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>,
+  Eye:      () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
   Upload:   () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
   Check:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg>,
 };
@@ -172,13 +173,17 @@ export default function Fred() {
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState('');
   const [stack,        setStack]        = useState([]);
+  const [watched,      setWatched]      = useState(() => {
+    if (typeof window === 'undefined') return [];
+    try { return JSON.parse(localStorage.getItem('fred_watched') || '[]'); } catch { return []; }
+  });
   const [messages,     setMessages]     = useState([]);
   const [chatInput,    setChatInput]    = useState('');
   const [chatLoading,  setChatLoading]  = useState(false);
   const [tasteProfile, setTasteProfile] = useState(null);
   const chatRef = useRef(null);
 
-  const fetchPicks = useCallback(async (plats, mds, profile) => {
+  const fetchPicks = useCallback(async (plats, mds, profile, seen) => {
     if (!plats.length) return;
     setLoading(true); setError(''); setPicks([]);
     try {
@@ -186,6 +191,7 @@ export default function Fred() {
         platforms: plats.join(','),
         moods:     mds.join(','),
         ...(profile && { taste: encodeURIComponent(JSON.stringify(profile)) }),
+        ...(seen?.length && { exclude: seen.map(w => w.id).join(',') }),
       });
       const res  = await fetch(`/api/picks?${params}`);
       const data = await res.json();
@@ -196,12 +202,17 @@ export default function Fred() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchPicks(DEFAULT_PLATFORMS, DEFAULT_MOODS, null); }, [fetchPicks]);
+  useEffect(() => {
+    const saved = (() => {
+      try { return JSON.parse(localStorage.getItem('fred_watched') || '[]'); } catch { return []; }
+    })();
+    fetchPicks(DEFAULT_PLATFORMS, DEFAULT_MOODS, null, saved);
+  }, [fetchPicks]);
 
   function go(name)          { setScreen(name); }
   function togglePlatform(p) { setPlatforms(prev => prev.includes(p) ? prev.filter(x=>x!==p) : [...prev,p]); }
   function toggleMood(m)     { setMoods(prev => prev.includes(m) ? prev.filter(x=>x!==m) : [...prev,m]); }
-  function loadPicks()       { go('tonight'); fetchPicks(platforms, moods, tasteProfile); }
+  function loadPicks()       { go('tonight'); fetchPicks(platforms, moods, tasteProfile, watched); }
 
   function saveToStack(pick) {
     const id = pick.id || pick.title;
@@ -209,6 +220,45 @@ export default function Fred() {
     setStack(prev => [...prev, { ...pick, id }]);
   }
   function removeFromStack(id) { setStack(prev => prev.filter(s => s.id !== id)); }
+
+  function markWatched(pick) {
+    const entry = { id: pick.tmdb_id || pick.id, title: pick.title, type: pick.type };
+    setWatched(prev => {
+      if (prev.find(w => w.id === entry.id)) return prev;
+      const next = [...prev, entry];
+      try { localStorage.setItem('fred_watched', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+
+  function isWatched(pick) {
+    return watched.some(w => w.id === (pick.tmdb_id || pick.id));
+  }
+
+  async function seenAndReplace(pick) {
+    // Mark as watched
+    markWatched(pick);
+    // Fetch a replacement of the same type
+    const newWatched = [...watched, { id: pick.tmdb_id || pick.id, title: pick.title, type: pick.type }];
+    const excludeAll = [...picks, ...newWatched].map(p => p.tmdb_id || p.id).filter(Boolean);
+    try {
+      const params = new URLSearchParams({
+        platforms: platforms.join(','),
+        moods:     moods.join(','),
+        replace:   pick.type,
+        exclude:   excludeAll.join(','),
+        ...(tasteProfile && { taste: encodeURIComponent(JSON.stringify(tasteProfile)) }),
+      });
+      const res  = await fetch(`/api/picks?${params}`);
+      const data = await res.json();
+      if (data.picks?.length) {
+        const replacement = data.picks.find(p => p.type === pick.type) || data.picks[0];
+        setPicks(prev => prev.map(p => (p.id === pick.id ? { ...replacement } : p)));
+      }
+    } catch (e) {
+      console.error('Replace failed', e);
+    }
+  }
 
   function saveFredPick(msg) {
     saveToStack({ id:`ask-${msg.title}`, title:msg.title,
@@ -369,7 +419,10 @@ export default function Fred() {
                   </div>
                   <div className="card-actions">
                     <button className="ca sv" onClick={() => saveToStack(pick)}><I.Bookmark /> Save</button>
-                    <button className="ca" onClick={loadPicks}><I.Refresh /> More</button>
+                    <button className={`ca ${isWatched(pick) ? 'ca-seen-active' : ''}`}
+                      onClick={() => !isWatched(pick) && seenAndReplace(pick)}>
+                      <I.Eye /> {isWatched(pick) ? 'Seen ✓' : 'Seen it'}
+                    </button>
                     <button className="ca"><I.External /> Open</button>
                   </div>
                 </div>
