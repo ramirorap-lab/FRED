@@ -102,13 +102,27 @@ export async function POST(request) {
     const reasonText = lines.filter(l => !l.trim().startsWith('→')).join(' ');
     const parts      = arrowLine.replace('→', '').split('|').map(s => s.trim());
 
-    return NextResponse.json({
-      text:     reasonText,
-      title:    parts[0] || '',
-      platform: parts[1] || '',
-      runtime:  parts[2] || '',
-      meta:     parts.slice(1).join(' · '),
+const title = parts[0] || '';
+let poster = null;
+if (title && process.env.TMDB_TOKEN) {
+  try {
+    const q   = encodeURIComponent(title);
+    const res = await fetch(`https://api.themoviedb.org/3/search/movie?query=${q}&language=en-US`, {
+      headers: { Authorization: `Bearer ${process.env.TMDB_TOKEN}` },
     });
+    const d = await res.json();
+    poster = d.results?.[0]?.poster_path || null;
+  } catch {}
+}
+
+return NextResponse.json({
+  text:     reasonText,
+  title,
+  platform: parts[1] || '',
+  runtime:  parts[2] || '',
+  meta:     parts.slice(1).join(' · '),
+  poster,
+});
 
   } catch (err) {
     console.error('Ask Fred error:', err);
