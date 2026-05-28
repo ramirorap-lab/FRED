@@ -1,6 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 const TMDB = 'https://image.tmdb.org/t/p/w500';
 const DEFAULT_PLATFORMS = ['Netflix', 'Prime Video'];
@@ -169,6 +175,52 @@ function LetterboxdUpload({ onProfileLoaded }) {
   );
 }
 
+function AuthModal({ email, setEmail, onSend, sent, loading, onSkip, onClose }) {
+  return (
+    <div className="auth-overlay">
+      <div className="auth-modal">
+        <button className="auth-close" onClick={onClose}>✕</button>
+        {!sent ? (
+          <>
+            <div className="auth-logo">Fred</div>
+            <div className="auth-title">Remember everything.</div>
+            <div className="auth-sub">
+              Your picks, your watchlist, your taste — saved forever across all your devices.
+            </div>
+            <input
+              className="auth-input"
+              type="email"
+              placeholder="your@email.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && onSend()}
+              autoFocus
+            />
+            <button className="auth-btn" onClick={onSend} disabled={loading}>
+              {loading ? 'Sending…' : 'Send magic link'}
+            </button>
+            <button className="auth-skip" onClick={onSkip}>
+              Not now — continue without saving
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="auth-logo">✓</div>
+            <div className="auth-title">Check your email.</div>
+            <div className="auth-sub">
+              We sent a magic link to <strong>{email}</strong>.<br/>
+              Tap it to sign in — no password needed.
+            </div>
+            <button className="auth-skip" onClick={onSkip}>
+              Continue without signing in
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Intro({ onDone }) {
   const [phase, setPhase] = useState(0);
   useEffect(() => {
@@ -212,6 +264,15 @@ export default function Fred() {
   const [chatInput,    setChatInput]    = useState('');
   const [chatLoading,  setChatLoading]  = useState(false);
   const [tasteProfile, setTasteProfile] = useState(null);
+  const [user,         setUser]         = useState(null);
+  const [pickCount,    setPickCount]    = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    try { return parseInt(localStorage.getItem('fred_pick_count') || '0'); } catch { return 0; }
+  });
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authEmail,     setAuthEmail]     = useState('');
+  const [authSent,      setAuthSent]      = useState(false);
+  const [authLoading,   setAuthLoading]   = useState(false);
   const chatRef = useRef(null);
 
   const fetchPicks = useCallback(async (plats, mds, profile, seen) => {
@@ -233,6 +294,55 @@ export default function Fred() {
     } finally { setLoading(false); }
   }, []);
 
+  // Listen for auth state changes
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+      if (session?.user) {
+        setShowAuthModal(false);
+        syncToSupabase(session.user);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Sync localStorage data to Supabase after login
+  async function syncToSupabase(u) {
+    try {
+      const localWatched = JSON.parse(localStorage.getItem('fred_watched') || '[]');
+      const localStack   = JSON.parse(localStorage.getItem('fred_stack')   || '[]');
+      if (localWatched.length) {
+        await supabase.from('user_watched').upsert(
+          localWatched.map(w => ({ user_id: u.id, tmdb_id: w.id, title: w.title, type: w.type })),
+          { onConflict: 'user_id,tmdb_id' }
+        );
+      }
+      if (localStack.length) {
+        await supabase.from('user_watchlist').upsert(
+          localStack.map(s => ({ user_id: u.id, tmdb_id: s.tmdb_id || s.id, title: s.title, type: s.type, platform: s.platform, poster: s.poster })),
+          { onConflict: 'user_id,tmdb_id' }
+        );
+      }
+    } catch (e) { console.error('Sync error:', e); }
+  }
+
+  // Load watched + watchlist from Supabase if logged in
+  useEffect(() => {
+    if (!user) return;
+    async function loadFromSupabase() {
+      const [{ data: w }, { data: s }] = await Promise.all([
+        supabase.from('user_watched').select('*').eq('user_id', user.id),
+        supabase.from('user_watchlist').select('*').eq('user_id', user.id),
+      ]);
+      if (w?.length) setWatched(w.map(r => ({ id: r.tmdb_id, title: r.title, type: r.type })));
+      if (s?.length) setStack(s.map(r => ({ id: `${r.type}-${r.tmdb_id}`, tmdb_id: r.tmdb_id, title: r.title, type: r.type, platform: r.platform, poster: r.poster })));
+    }
+    loadFromSupabase();
+  }, [user]);
+
   useEffect(() => {
     const saved = (() => {
       try { return JSON.parse(localStorage.getItem('fred_watched') || '[]'); } catch { return []; }
@@ -243,12 +353,31 @@ export default function Fred() {
   function go(name)          { setScreen(name); }
   function togglePlatform(p) { setPlatforms(prev => prev.includes(p) ? prev.filter(x=>x!==p) : [...prev,p]); }
   function toggleMood(m)     { setMoods(prev => prev.includes(m) ? prev.filter(x=>x!==m) : [...prev,m]); }
-  function loadPicks()       { go('tonight'); fetchPicks(platforms, moods, tasteProfile, watched); }
+  function loadPicks() {
+    const newCount = pickCount + 1;
+    setPickCount(newCount);
+    try { localStorage.setItem('fred_pick_count', String(newCount)); } catch {}
+    if (newCount === 2 && !user) {
+      setShowAuthModal(true);
+      return;
+    }
+    go('tonight');
+    fetchPicks(platforms, moods, tasteProfile, watched);
+  }
 
   function saveToStack(pick) {
     const id = pick.id || pick.title;
     if (stack.find(s => s.id === id)) return;
-    setStack(prev => [...prev, { ...pick, id }]);
+    const entry = { ...pick, id };
+    setStack(prev => [...prev, entry]);
+    try { localStorage.setItem('fred_stack', JSON.stringify([...stack, entry])); } catch {}
+    if (user) {
+      supabase.from('user_watchlist').upsert({
+        user_id: user.id, tmdb_id: pick.tmdb_id || pick.id,
+        title: pick.title, type: pick.type,
+        platform: pick.platform, poster: pick.poster,
+      }, { onConflict: 'user_id,tmdb_id' }).catch(console.error);
+    }
   }
   function removeFromStack(id) { setStack(prev => prev.filter(s => s.id !== id)); }
 
@@ -260,6 +389,12 @@ export default function Fred() {
       try { localStorage.setItem('fred_watched', JSON.stringify(next)); } catch {}
       return next;
     });
+    if (user) {
+      supabase.from('user_watched').upsert({
+        user_id: user.id, tmdb_id: entry.id,
+        title: entry.title, type: entry.type,
+      }, { onConflict: 'user_id,tmdb_id' }).catch(console.error);
+    }
   }
 
   function isWatched(pick) {
@@ -304,6 +439,23 @@ export default function Fred() {
       type:msg.meta?.toLowerCase().includes('series')?'series':'movie', poster:msg.poster||null });
   }
 
+  async function sendMagicLink() {
+    if (!authEmail.trim()) return;
+    setAuthLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: authEmail.trim(),
+        options: { emailRedirectTo: window.location.origin },
+      });
+      if (error) throw error;
+      setAuthSent(true);
+    } catch (e) {
+      console.error('Auth error:', e);
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
   async function sendChat(text) {
     const t = (text || chatInput).trim();
     if (!t || chatLoading) return;
@@ -343,8 +495,28 @@ export default function Fred() {
 
   if (showIntro) return <Intro onDone={() => setShowIntro(false)} />;
 
+  function handleSkipAuth() {
+    setShowAuthModal(false);
+    // Bump pick count so modal doesn't show again this session
+    setPickCount(prev => prev + 1);
+    go('tonight');
+    fetchPicks(platforms, moods, tasteProfile, watched);
+  }
+
   return (
     <div className="app">
+
+      {showAuthModal && (
+        <AuthModal
+          email={authEmail}
+          setEmail={setAuthEmail}
+          onSend={sendMagicLink}
+          sent={authSent}
+          loading={authLoading}
+          onSkip={handleSkipAuth}
+          onClose={() => setShowAuthModal(false)}
+        />
+      )}
 
       {/* TASTE */}
       <div className={`screen ${screen==='taste'?'active':''}`}>
@@ -386,7 +558,10 @@ export default function Fred() {
       <div className={`screen ${screen==='tonight'?'active':''}`}>
         <div className="topbar">
           <div className="topbar-logo" onClick={() => go('taste')}>Fred</div>
-          <div className="topbar-right">Picks</div>
+          <div className="topbar-right" style={{display:'flex',alignItems:'center',gap:'8px'}}>
+            {user && <span style={{fontSize:'8px',color:'#00c27a',letterSpacing:'.1em',textTransform:'uppercase'}}>● Saved</span>}
+            Picks
+          </div>
         </div>
         <div className="tonight-count">
           2 films · 1 series
