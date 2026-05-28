@@ -202,6 +202,7 @@ export default function Fred() {
   const [stack,        setStack]        = useState([]);
   const [flippingId,   setFlippingId]   = useState(null);
   const [flippedIn,    setFlippedIn]    = useState(null);
+  const [replacingId,  setReplacingId]  = useState(null);
   const [watched,      setWatched]      = useState(() => {
     if (typeof window === 'undefined') return [];
     try { return JSON.parse(localStorage.getItem('fred_watched') || '[]'); } catch { return []; }
@@ -269,19 +270,19 @@ export default function Fred() {
 
   async function seenAndReplace(pick) {
     markWatched(pick);
-    // Phase 1: flip out
+    // Phase 1: flip out + show loading
     setFlippingId(pick.id);
+    setReplacingId(pick.id);
     const newWatched = [...watched, { id: pick.tmdb_id || pick.id, title: pick.title, type: pick.type }];
     const excludeAll = [...picks, ...newWatched].map(p => p.tmdb_id || p.id).filter(Boolean);
     try {
       const params = new URLSearchParams({
         platforms: platforms.join(','),
         moods:     moods.join(','),
-        replace:   pick.type,
+        type:      pick.type,
         exclude:   excludeAll.join(','),
-        ...(tasteProfile && { taste: encodeURIComponent(JSON.stringify(tasteProfile)) }),
       });
-      const res = await fetch(`/api/picks?${params}`);
+      const res = await fetch(`/api/replace?${params}`);
       const data = await res.json();
       if (data.picks?.length) {
         const replacement = data.picks.find(p => p.type === pick.type) || data.picks[0];
@@ -289,6 +290,7 @@ export default function Fred() {
         setTimeout(() => {
           setPicks(prev => prev.map(p => (p.id === pick.id ? { ...replacement } : p)));
           setFlippingId(null);
+          setReplacingId(null);
           setFlippedIn(replacement.id);
           setTimeout(() => setFlippedIn(null), 500);
         }, 320);
@@ -296,6 +298,7 @@ export default function Fred() {
     } catch (e) {
       console.error('Replace failed', e);
       setFlippingId(null);
+      setReplacingId(null);
     }
   }
 
