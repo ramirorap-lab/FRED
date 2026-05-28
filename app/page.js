@@ -1,25 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-let _supabase = null;
-function getSupabase() {
-  if (_supabase) return _supabase;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  _supabase = createClient(url, key);
-  return _supabase;
-}
-const supabase = { 
-  auth: {
-    getSession: (...a) => getSupabase()?.auth.getSession(...a) || Promise.resolve({ data: { session: null } }),
-    onAuthStateChange: (...a) => getSupabase()?.auth.onAuthStateChange(...a) || { data: { subscription: { unsubscribe: () => {} } } },
-    signInWithOtp: (...a) => getSupabase()?.auth.signInWithOtp(...a) || Promise.resolve({}),
-  },
-  from: (...a) => getSupabase()?.from(...a),
-};
+// Auth handled via API routes
 
 const TMDB = 'https://image.tmdb.org/t/p/w500';
 const DEFAULT_PLATFORMS = ['Netflix', 'Prime Video'];
@@ -309,51 +291,19 @@ export default function Fred() {
 
   // Listen for auth state changes
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user || null);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
-      if (session?.user) {
-        setShowAuthModal(false);
-        syncToSupabase(session.user);
-      }
-    });
-    return () => subscription.unsubscribe();
+    // Check session via API
+    fetch('/api/auth/session').then(r => r.json()).then(d => {
+      if (d.user) setUser(d.user);
+    }).catch(() => {});
   }, []);
 
-  // Sync localStorage data to Supabase after login
-  async function syncToSupabase(u) {
-    try {
-      const localWatched = JSON.parse(localStorage.getItem('fred_watched') || '[]');
-      const localStack   = JSON.parse(localStorage.getItem('fred_stack')   || '[]');
-      if (localWatched.length) {
-        await supabase.from('user_watched').upsert(
-          localWatched.map(w => ({ user_id: u.id, tmdb_id: w.id, title: w.title, type: w.type })),
-          { onConflict: 'user_id,tmdb_id' }
-        );
-      }
-      if (localStack.length) {
-        await supabase.from('user_watchlist').upsert(
-          localStack.map(s => ({ user_id: u.id, tmdb_id: s.tmdb_id || s.id, title: s.title, type: s.type, platform: s.platform, poster: s.poster })),
-          { onConflict: 'user_id,tmdb_id' }
-        );
-      }
-    } catch (e) { console.error('Sync error:', e); }
-  }
-
-  // Load watched + watchlist from Supabase if logged in
+  // Load user data from Supabase via API
   useEffect(() => {
     if (!user) return;
-    async function loadFromSupabase() {
-      const [{ data: w }, { data: s }] = await Promise.all([
-        supabase.from('user_watched').select('*').eq('user_id', user.id),
-        supabase.from('user_watchlist').select('*').eq('user_id', user.id),
-      ]);
-      if (w?.length) setWatched(w.map(r => ({ id: r.tmdb_id, title: r.title, type: r.type })));
-      if (s?.length) setStack(s.map(r => ({ id: `${r.type}-${r.tmdb_id}`, tmdb_id: r.tmdb_id, title: r.title, type: r.type, platform: r.platform, poster: r.poster })));
-    }
-    loadFromSupabase();
+    fetch('/api/auth/userdata').then(r => r.json()).then(d => {
+      if (d.watched?.length) setWatched(d.watched);
+      if (d.watchlist?.length) setStack(d.watchlist);
+    }).catch(() => {});
   }, [user]);
 
   useEffect(() => {
@@ -385,11 +335,9 @@ export default function Fred() {
     setStack(prev => [...prev, entry]);
     try { localStorage.setItem('fred_stack', JSON.stringify([...stack, entry])); } catch {}
     if (user) {
-      supabase.from('user_watchlist').upsert({
-        user_id: user.id, tmdb_id: pick.tmdb_id || pick.id,
-        title: pick.title, type: pick.type,
-        platform: pick.platform, poster: pick.poster,
-      }, { onConflict: 'user_id,tmdb_id' }).catch(console.error);
+      fetch('/api/auth/save', { method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ tmdb_id: pick.tmdb_id || pick.id, title: pick.title, type: pick.type, platform: pick.platform, poster: pick.poster })
+      }).catch(console.error);
     }
   }
   function removeFromStack(id) { setStack(prev => prev.filter(s => s.id !== id)); }
@@ -403,10 +351,9 @@ export default function Fred() {
       return next;
     });
     if (user) {
-      supabase.from('user_watched').upsert({
-        user_id: user.id, tmdb_id: entry.id,
-        title: entry.title, type: entry.type,
-      }, { onConflict: 'user_id,tmdb_id' }).catch(console.error);
+      fetch('/api/auth/seen', { method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ tmdb_id: entry.id, title: entry.title, type: entry.type })
+      }).catch(console.error);
     }
   }
 
@@ -456,11 +403,12 @@ export default function Fred() {
     if (!authEmail.trim()) return;
     setAuthLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: authEmail.trim(),
-        options: { emailRedirectTo: window.location.origin },
+      const res = await fetch('/api/auth/magic', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ email: authEmail.trim() }),
       });
-      if (error) throw error;
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
       setAuthSent(true);
     } catch (e) {
       console.error('Auth error:', e);
