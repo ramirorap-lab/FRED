@@ -492,7 +492,9 @@ export default function Fred() {
       {/* TASTE */}
       <div className={`screen ${screen==='taste'?'active':''}`}>
         <div className="taste-wrap">
-          <div className="taste-logo">Fred</div>
+          <div className="taste-logo">
+            Fred{user && <span className="fred-online-dot"/>}
+          </div>
           <div className="taste-slogan">Your film friend</div>
           <div className="taste-question">
             What are you<br />
@@ -528,7 +530,9 @@ export default function Fred() {
       {/* PICKS */}
       <div className={`screen ${screen==='tonight'?'active':''}`}>
         <div className="topbar">
-          <div className="topbar-logo" onClick={() => go('taste')}>Fred</div>
+          <div className="topbar-logo" onClick={() => go('taste')}>
+            Fred{user && <span className="fred-online-dot"/>}
+          </div>
           <div className="topbar-right" style={{display:'flex',alignItems:'center',gap:'8px'}}>
             {user && <span style={{fontSize:'8px',color:'#00c27a',letterSpacing:'.1em',textTransform:'uppercase'}}>● Saved</span>}
             Picks
@@ -542,7 +546,8 @@ export default function Fred() {
           {loading && (
             <div className="loading">
               <div className="spinner"/>
-              <div className="load-txt">Fred is thinking…</div>
+              <div className="load-txt-main">Finding your picks…</div>
+              <div className="load-txt-sub">2 films + 1 series curated for {moods.length ? moods.join(' & ') : 'tonight'}</div>
             </div>
           )}
           {!loading && error && (
@@ -631,7 +636,9 @@ export default function Fred() {
       {/* ASK FRED */}
       <div className={`screen ${screen==='ask'?'active':''}`} style={{paddingBottom:'130px'}} ref={chatRef}>
         <div className="topbar">
-          <div className="topbar-logo" onClick={() => go('taste')}>Fred</div>
+          <div className="topbar-logo" onClick={() => go('taste')}>
+            Fred{user && <span className="fred-online-dot"/>}
+          </div>
           <div className="topbar-right">Ask Fred</div>
         </div>
         <div className="prompt-chips">
@@ -673,7 +680,9 @@ export default function Fred() {
       {/* WATCHLIST */}
       <div className={`screen ${screen==='watchlist'?'active':''}`}>
         <div className="topbar">
-          <div className="topbar-logo" onClick={() => go('taste')}>Fred</div>
+          <div className="topbar-logo" onClick={() => go('taste')}>
+            Fred{user && <span className="fred-online-dot"/>}
+          </div>
           <div className="topbar-right">Watchlist</div>
         </div>
         <div className="st-list">
@@ -702,13 +711,7 @@ export default function Fred() {
         <button className={`nv ${screen==='taste'?'active':''}`}     onClick={() => go('taste')}>    <I.Search />   Search   </button>
         <button className={`nv ${screen==='tonight'?'active':''}`}   onClick={() => go('tonight')}>  <I.Movie />    Picks    </button>
         <button className={`nv ${screen==='ask'?'active':''}`}       onClick={() => go('ask')}>      <I.Chat />     Ask Fred </button>
-        <button className={`nv ${screen==='watchlist'?'active':''}`} onClick={() => go('watchlist')}>
-          <div style={{position:'relative',display:'inline-flex'}}>
-            <I.Bookmark />
-            {user && <span className="user-dot"/>}
-          </div>
-          Watchlist
-        </button>
+        <button className={`nv ${screen==='watchlist'?'active':''}`} onClick={() => go('watchlist')}><I.Bookmark /> Watchlist</button>
       </nav>
     </div>
   );
