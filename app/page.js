@@ -93,6 +93,9 @@ function FredCard({ msg, onSave }) {
   const [posterFailed, setPosterFailed] = useState(false);
   const bg = bgClass(msg.title);
   const isGreeting = !msg.title;
+  const trailerUrl = msg.title
+    ? `https://www.youtube.com/results?search_query=${encodeURIComponent(msg.title + ' official trailer')}`
+    : null;
   return (
     <div className="fred-row">
       <div className="fred-avatar">F</div>
@@ -109,6 +112,13 @@ function FredCard({ msg, onSave }) {
               )}
               <div className="fred-pick-grad" />
               <div className="fred-pick-title-ov">{msg.title}</div>
+              {trailerUrl && (
+                <a href={trailerUrl} target="_blank" rel="noopener noreferrer" className="trailer-btn"
+                  style={{position:'absolute',bottom:'10px',right:'10px'}}>
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5"/><polygon points="10 8 16 12 10 16"/></svg>
+                  Trailer
+                </a>
+              )}
             </div>
             <div className="fred-pick-footer">
               <div className="fred-pick-meta">{msg.meta}</div>
@@ -598,9 +608,12 @@ export default function Fred() {
                       {pick.fred_note && <div className="card-note">"{pick.fred_note}"</div>}
                     </div>
                     <div className="card-actions">
-                      <button className="ca sv" onClick={() => saveToStack(pick)}><I.Bookmark /> Save</button>
+                      <button className={`ca sv ${stack.find(s => s.id === (pick.id || pick.title)) ? 'ca-saved' : ''}`}
+                        onClick={() => saveToStack(pick)}>
+                        <I.Bookmark /> {stack.find(s => s.id === (pick.id || pick.title)) ? 'Saved' : 'Save'}
+                      </button>
                       <button className={`ca ${isWatched(pick) ? 'ca-seen-active' : ''}`}
-                        onClick={() => !isWatched(pick) && seenAndReplace(pick)}>
+                        onClick={() => seenAndReplace(pick)}>
                         <I.Eye /> {isWatched(pick) ? 'Seen ✓' : 'Seen it'}
                       </button>
                       <a className="ca" href={platformUrl(pick.platform, pick.title)} target="_blank" rel="noopener noreferrer">
@@ -689,7 +702,13 @@ export default function Fred() {
         <button className={`nv ${screen==='taste'?'active':''}`}     onClick={() => go('taste')}>    <I.Search />   Search   </button>
         <button className={`nv ${screen==='tonight'?'active':''}`}   onClick={() => go('tonight')}>  <I.Movie />    Picks    </button>
         <button className={`nv ${screen==='ask'?'active':''}`}       onClick={() => go('ask')}>      <I.Chat />     Ask Fred </button>
-        <button className={`nv ${screen==='watchlist'?'active':''}`} onClick={() => go('watchlist')}><I.Bookmark /> Watchlist</button>
+        <button className={`nv ${screen==='watchlist'?'active':''}`} onClick={() => go('watchlist')}>
+          <div style={{position:'relative',display:'inline-flex'}}>
+            <I.Bookmark />
+            {user && <span className="user-dot"/>}
+          </div>
+          Watchlist
+        </button>
       </nav>
     </div>
   );
