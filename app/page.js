@@ -420,7 +420,14 @@ export default function Fred() {
             const bg  = bgClass(pick.title);
             const trailerUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(pick.title + ' official trailer')}`;
             return (
-              <div key={pick.id} className={`pick-block ${flippingId === pick.id ? 'is-flipping' : ''} ${flippedIn === pick.id ? 'is-flipped-in' : ''}`}>
+              <div key={pick.id} style={{position:'relative'}}>
+                {replacingId === pick.id && (
+                  <div className="card-replacing">
+                    <div className="spinner" style={{width:'18px',height:'18px',borderWidth:'2px'}}/>
+                    <span>Good taste — finding something else…</span>
+                  </div>
+                )}
+                <div className={`pick-block ${flippingId === pick.id ? 'is-flipping' : ''} ${flippedIn === pick.id ? 'is-flipped-in' : ''}`}>
                 <div className="pick-header">
                   <span className={`pick-label ${lbl.cls}`}>
                     {pick.pick_type === 'wildcard' && pick.director_name
