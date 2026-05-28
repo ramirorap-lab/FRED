@@ -3,9 +3,23 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-  ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-  : null;
+let _supabase = null;
+function getSupabase() {
+  if (_supabase) return _supabase;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  _supabase = createClient(url, key);
+  return _supabase;
+}
+const supabase = { 
+  auth: {
+    getSession: (...a) => getSupabase()?.auth.getSession(...a) || Promise.resolve({ data: { session: null } }),
+    onAuthStateChange: (...a) => getSupabase()?.auth.onAuthStateChange(...a) || { data: { subscription: { unsubscribe: () => {} } } },
+    signInWithOtp: (...a) => getSupabase()?.auth.signInWithOtp(...a) || Promise.resolve({}),
+  },
+  from: (...a) => getSupabase()?.from(...a),
+};
 
 const TMDB = 'https://image.tmdb.org/t/p/w500';
 const DEFAULT_PLATFORMS = ['Netflix', 'Prime Video'];
