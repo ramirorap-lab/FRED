@@ -717,4 +717,21 @@ html, body {
   transition: color .15s;
 }
 .auth-skip:hover { color: #888; }
- 
+
+/* ── SAVED STATE ── */
+.ca-saved {
+  color: var(--red) !important;
+}
+.ca-saved svg {
+  stroke: var(--red);
+}
+
+/* ── USER DOT in nav ── */
+.user-dot {
+  position: absolute;
+  top: -1px; right: -2px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #00c27a;
+  border: 1px solid var(--bg);
+}
