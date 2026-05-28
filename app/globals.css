@@ -726,12 +726,29 @@ html, body {
   stroke: var(--red);
 }
 
-/* ── USER DOT in nav ── */
-.user-dot {
-  position: absolute;
-  top: -1px; right: -2px;
-  width: 6px; height: 6px;
+
+
+/* ── FRED ONLINE DOT ── */
+.fred-online-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
   border-radius: 50%;
   background: #00c27a;
-  border: 1px solid var(--bg);
+  margin-left: 4px;
+  vertical-align: middle;
+  position: relative;
+  top: -3px;
+}
+
+/* ── LOADING MESSAGES ── */
+.load-txt-main {
+  font-family: var(--font-display), sans-serif;
+  font-size: 18px; font-weight: 700;
+  color: #fff; letter-spacing: -.01em;
+  text-align: center;
+}
+.load-txt-sub {
+  font-size: 11px; color: var(--dim);
+  letter-spacing: .08em; text-transform: uppercase;
+  text-align: center; margin-top: 4px;
 }
