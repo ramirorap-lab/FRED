@@ -16,7 +16,7 @@ const MOOD_GENRES = {
 
 const PROVIDER_IDS = {
   'Netflix': 8, 'Prime Video': 9, 'Hulu': 15,
-  'Max': 384, 'Apple TV+': 350, 'Disney+': 337, 'Peacock': 386,
+  'Max': 1899, 'Apple TV+': 350, 'Disney+': 337, 'Peacock': 386,
 };
 
 // Mood → keywords to match director pick films
