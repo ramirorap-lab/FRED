@@ -78,10 +78,12 @@ async function fetchRedditPosts(source) {
         'User-Agent': 'Mozilla/5.0 (compatible; FredApp/1.0; film recommendations)',
       },
     });
-    if (!res.ok) {
-      console.log(`Reddit ${source.id} error: ${res.status}`);
-      return [];
-    }
+   const text = await res.text();
+console.log(`Reddit ${source.id} status: ${res.status}, body: ${text.slice(0, 200)}`);
+if (!res.ok) return [];
+try {
+  return JSON.parse(text)?.data?.children?.map(c => c.data) || [];
+} catch { return []; }
     const data = await res.json();
     return data?.data?.children?.map(c => c.data) || [];
   } catch (err) {
