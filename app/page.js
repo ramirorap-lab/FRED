@@ -61,7 +61,6 @@ function platformUrl(platform, title) {
 
 const I = {
   Bookmark: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
-  Refresh:  () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>,
   External: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>,
   Send:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>,
   X:        () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
@@ -70,8 +69,6 @@ const I = {
   Chat:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   Play:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>,
   Eye:      () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
-  Upload:   () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
-  Check:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg>,
 };
 
 function Poster({ poster, title, bg }) {
@@ -100,26 +97,27 @@ function FredCard({ msg, onSave }) {
       <div className="fred-avatar">F</div>
       <div className={`fred-bubble ${isGreeting ? 'fred-greeting' : ''}`}>
         <div className="fred-text">{isGreeting ? stripMd(msg.text) : `"${stripMd(msg.text)}"`}</div>
-      {msg.title && (
-        <div className="fred-pick-card">
-          <div className={`fred-pick-poster ${bg}`}>
-            <div className="fred-pick-ph">{msg.title.charAt(0)}</div>
-            {msg.poster && !posterFailed && (
-              <img src={`${TMDB}${msg.poster}`} alt={msg.title}
-                onError={() => setPosterFailed(true)}
-                style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover' }} />
-            )}
-            <div className="fred-pick-grad" />
-            <div className="fred-pick-title-ov">{msg.title}</div>
+        {msg.title && (
+          <div className="fred-pick-card">
+            <div className={`fred-pick-poster ${bg}`}>
+              <div className="fred-pick-ph">{msg.title.charAt(0)}</div>
+              {msg.poster && !posterFailed && (
+                <img src={`${TMDB}${msg.poster}`} alt={msg.title}
+                  onError={() => setPosterFailed(true)}
+                  style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover' }} />
+              )}
+              <div className="fred-pick-grad" />
+              <div className="fred-pick-title-ov">{msg.title}</div>
+            </div>
+            <div className="fred-pick-footer">
+              <div className="fred-pick-meta">{msg.meta}</div>
+              <button className="fred-save-btn" onClick={() => onSave(msg)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="12" height="12"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                <span>Save</span>
+              </button>
+            </div>
           </div>
-          <div className="fred-pick-footer">
-            <div className="fred-pick-meta">{msg.meta}</div>
-            <button className="fred-save-btn" onClick={() => onSave(msg)}>
-              <I.Bookmark /><span>Save</span>
-            </button>
-          </div>
-        </div>
-      )}
+        )}
       </div>
     </div>
   );
@@ -207,7 +205,7 @@ export default function Fred() {
     if (typeof window === 'undefined') return [];
     try { return JSON.parse(localStorage.getItem('fred_watched') || '[]'); } catch { return []; }
   });
-  const [messages,     setMessages]     = useState(() => {
+  const [messages, setMessages] = useState(() => {
     const greeting = FRED_GREETINGS[Math.floor(Math.random() * FRED_GREETINGS.length)];
     return [{ role: 'fred', text: greeting, title: '', meta: '', poster: null }];
   });
@@ -270,7 +268,6 @@ export default function Fred() {
 
   async function seenAndReplace(pick) {
     markWatched(pick);
-    // Phase 1: flip out + show loading
     setFlippingId(pick.id);
     setReplacingId(pick.id);
     const newWatched = [...watched, { id: pick.tmdb_id || pick.id, title: pick.title, type: pick.type }];
@@ -282,11 +279,10 @@ export default function Fred() {
         type:      pick.type,
         exclude:   excludeAll.join(','),
       });
-      const res = await fetch(`/api/replace?${params}`);
+      const res  = await fetch(`/api/replace?${params}`);
       const data = await res.json();
       if (data.picks?.length) {
         const replacement = data.picks.find(p => p.type === pick.type) || data.picks[0];
-        // Swap content at midpoint of flip
         setTimeout(() => {
           setPicks(prev => prev.map(p => (p.id === pick.id ? { ...replacement } : p)));
           setFlippingId(null);
@@ -381,16 +377,12 @@ export default function Fred() {
             ))}
           </div>
           <div className="t-divider" />
-          <LetterboxdUpload onProfileLoaded={profile => {
-            setTasteProfile(profile);
-          }} />
-          <button className="taste-cta" onClick={loadPicks}>
-            Fred's picks
-          </button>
+          <LetterboxdUpload onProfileLoaded={profile => setTasteProfile(profile)} />
+          <button className="taste-cta" onClick={loadPicks}>Fred's picks</button>
         </div>
       </div>
 
-      {/* TONIGHT */}
+      {/* PICKS */}
       <div className={`screen ${screen==='tonight'?'active':''}`}>
         <div className="topbar">
           <div className="topbar-logo" onClick={() => go('taste')}>Fred</div>
@@ -428,54 +420,57 @@ export default function Fred() {
                   </div>
                 )}
                 <div className={`pick-block ${flippingId === pick.id ? 'is-flipping' : ''} ${flippedIn === pick.id ? 'is-flipped-in' : ''}`}>
-                <div className="pick-header">
-                  <span className={`pick-label ${lbl.cls}`}>
-                    {pick.pick_type === 'wildcard' && pick.director_name
-                      ? `${pick.director_name.split(' ').pop()}'s Pick`
-                      : lbl.label}
-                  </span>
-                  <span className="pick-sep">·</span>
-                  <span className={`type-badge ${pick.type === 'series' ? 'type-series' : 'type-film'}`}>
-                    {pick.type === 'series' ? 'Series' : 'Film'}
-                  </span>
-                  <span className="pick-sep">·</span>
-                  <span className="plat-name">{pick.platform}</span>
-                  <span className="pick-sep">·</span>
-                  <span className="pick-meta-line">{[pick.year, pick.runtime].filter(Boolean).join(' · ')}</span>
-                </div>
-                <div className="card">
-                  <div className={`poster-wrap ${bg}`}>
-                    <Poster poster={pick.poster} title={pick.title} bg={bg} />
-                    <div className="poster-grad"/>
-                    <div className="poster-title-ov">{pick.title}</div>
-                    {pick.letterboxd && (
-                      <div className="poster-tl">
-                        <span className="bdg bdg-lb">↑ Letterboxd</span>
-                      </div>
-                    )}
-                    {pick.rating && (
-                      <div className="poster-score">
-                        <div className="score-n">{Number(pick.rating).toFixed(1)}</div>
-                        <div className="score-l">IMDB</div>
-                      </div>
-                    )}
-                    <a href={trailerUrl} target="_blank" rel="noopener noreferrer" className="trailer-btn" onClick={e => e.stopPropagation()}>
-                      <I.Play /> Trailer
-                    </a>
+                  <div className="pick-header">
+                    <span className={`pick-label ${lbl.cls}`}>
+                      {pick.pick_type === 'wildcard' && pick.director_name
+                        ? `${pick.director_name.split(' ').pop()}'s Pick`
+                        : lbl.label}
+                    </span>
+                    <span className="pick-sep">·</span>
+                    <span className={`type-badge ${pick.type === 'series' ? 'type-series' : 'type-film'}`}>
+                      {pick.type === 'series' ? 'Series' : 'Film'}
+                    </span>
+                    <span className="pick-sep">·</span>
+                    <span className="plat-name">{pick.platform}</span>
+                    <span className="pick-sep">·</span>
+                    <span className="pick-meta-line">{[pick.year, pick.runtime].filter(Boolean).join(' · ')}</span>
                   </div>
-                  <div className="card-body">
-                    {pick.pick_type === 'wildcard' && pick.director_quote && (
-                      <div className="director-note">"{pick.director_quote}" — {pick.director_name}</div>
-                    )}
-                    {pick.fred_note && <div className="card-note">"{pick.fred_note}"</div>}
-                  </div>
-                  <div className="card-actions">
-                    <button className="ca sv" onClick={() => saveToStack(pick)}><I.Bookmark /> Save</button>
-                    <button className={`ca ${isWatched(pick) ? 'ca-seen-active' : ''}`}
-                      onClick={() => !isWatched(pick) && seenAndReplace(pick)}>
-                      <I.Eye /> {isWatched(pick) ? 'Seen ✓' : 'Seen it'}
-                    </button>
-                    <a className="ca" href={platformUrl(pick.platform, pick.title)} target="_blank" rel="noopener noreferrer"><I.External /> Open</a>
+                  <div className="card">
+                    <div className={`poster-wrap ${bg}`}>
+                      <Poster poster={pick.poster} title={pick.title} bg={bg} />
+                      <div className="poster-grad"/>
+                      <div className="poster-title-ov">{pick.title}</div>
+                      {pick.letterboxd && (
+                        <div className="poster-tl">
+                          <span className="bdg bdg-lb">↑ Letterboxd</span>
+                        </div>
+                      )}
+                      {pick.rating && (
+                        <div className="poster-score">
+                          <div className="score-n">{Number(pick.rating).toFixed(1)}</div>
+                          <div className="score-l">IMDB</div>
+                        </div>
+                      )}
+                      <a href={trailerUrl} target="_blank" rel="noopener noreferrer" className="trailer-btn" onClick={e => e.stopPropagation()}>
+                        <I.Play /> Trailer
+                      </a>
+                    </div>
+                    <div className="card-body">
+                      {pick.pick_type === 'wildcard' && pick.director_quote && (
+                        <div className="director-note">"{pick.director_quote}" — {pick.director_name}</div>
+                      )}
+                      {pick.fred_note && <div className="card-note">"{pick.fred_note}"</div>}
+                    </div>
+                    <div className="card-actions">
+                      <button className="ca sv" onClick={() => saveToStack(pick)}><I.Bookmark /> Save</button>
+                      <button className={`ca ${isWatched(pick) ? 'ca-seen-active' : ''}`}
+                        onClick={() => !isWatched(pick) && seenAndReplace(pick)}>
+                        <I.Eye /> {isWatched(pick) ? 'Seen ✓' : 'Seen it'}
+                      </button>
+                      <a className="ca" href={platformUrl(pick.platform, pick.title)} target="_blank" rel="noopener noreferrer">
+                        <I.External /> Open
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -536,7 +531,7 @@ export default function Fred() {
           {stack.length===0 ? (
             <div className="empty">
               <div className="empty-icon"><I.Bookmark /></div>
-              <div className="empty-text">Nothing saved yet.<br/>Save picks from Tonight or Ask Fred.</div>
+              <div className="empty-text">Nothing saved yet.<br/>Save picks from Picks or Ask Fred.</div>
             </div>
           ) : stack.map(item=>(
             <div className="si" key={item.id}>
