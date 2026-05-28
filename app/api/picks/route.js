@@ -68,38 +68,108 @@ async function getRegularCandidates(platforms, moods, token) {
   const movieGenres = [...new Set(moods.flatMap(m => MOOD_GENRES[m]?.movie || [18]))].join(',');
   const tvGenres    = [...new Set(moods.flatMap(m => MOOD_GENRES[m]?.tv    || [18]))].join(',');
 
+  // Rotate sort strategy and page for variety
+  const sortStrategies = ['vote_average.desc', 'popularity.desc', 'vote_count.desc'];
+  const sort = sortStrategies[Math.floor(Math.random() * sortStrategies.length)];
+  const page = String(Math.floor(Math.random() * 4) + 1);
+
+  // For funny/family/romantic use modern films (post-1990)
+  const modernMoods = ['funny', 'family', 'romantic', 'adventure'];
+  const needsModern = moods.some(m => modernMoods.includes(m));
+  const yearFilter  = needsModern ? { 'primary_release_date.gte': '1990-01-01' } : {};
+  const tvYearFilter = needsModern ? { 'first_air_date.gte': '1990-01-01' } : {};
+
   const base = {
     watch_region: 'US', language: 'en-US',
-    'vote_count.gte': '300', 'vote_average.gte': '6.8',
-    sort_by: 'vote_average.desc', page: '1',
+    'vote_count.gte': sort === 'vote_average.desc' ? '500' : '200',
+    'vote_average.gte': '6.5',
+    sort_by: sort,
+    page,
   };
 
-  const mP = new URLSearchParams({ ...base, with_genres: movieGenres, ...(providerIds && { with_watch_providers: providerIds }) });
-  const tP = new URLSearchParams({ ...base, with_genres: tvGenres, 'vote_count.gte': '150', ...(providerIds && { with_watch_providers: providerIds }) });
+  const mP = new URLSearchParams({
+    ...base, ...yearFilter,
+    with_genres: movieGenres,
+    ...(providerIds && { with_watch_providers: providerIds }),
+  });
+  const tP = new URLSearchParams({
+    ...base, ...tvYearFilter,
+    with_genres: tvGenres,
+    'vote_count.gte': '150',
+    ...(providerIds && { with_watch_providers: providerIds }),
+  });
 
-  const [movies, tv] = await Promise.all([
+  // Also fetch a trending page for freshness
+  const trendingP = new URLSearchParams({
+    watch_region: 'US', language: 'en-US',
+    ...(providerIds && { with_watch_providers: providerIds }),
+  });
+
+  const [movies, tv, trending] = await Promise.all([
     tmdbFetch(`${TMDB}/discover/movie?${mP}`, token),
     tmdbFetch(`${TMDB}/discover/tv?${tP}`, token),
+    tmdbFetch(`${TMDB}/trending/movie/week?${trendingP}`, token),
   ]);
 
   const fmt = (item, type) => ({
-    tmdb_id: item.id,
+    tmdb_id:  item.id,
     type,
-    title:   type === 'movie' ? item.title : item.name,
-    year:    (type === 'movie' ? item.release_date : item.first_air_date)?.slice(0,4) || '',
-    rating:  item.vote_average?.toFixed(1),
-    votes:   item.vote_count,
+    title:    type === 'movie' ? item.title : item.name,
+    year:     (type === 'movie' ? item.release_date : item.first_air_date)?.slice(0,4) || '',
+    rating:   item.vote_average?.toFixed(1),
+    votes:    item.vote_count,
     overview: item.overview?.slice(0, 120),
-    poster:  item.poster_path,
+    poster:   item.poster_path,
+    trending: false,
   });
 
+  const movieList   = (movies?.results||[]).filter(m=>m.poster_path).slice(0,15).map(m=>fmt(m,'movie'));
+  const tvList      = (tv?.results||[]).filter(s=>s.poster_path).slice(0,8).map(s=>fmt(s,'series'));
+  const trendList   = (trending?.results||[]).filter(m=>m.poster_path).slice(0,5).map(m=>({...fmt(m,'movie'), trending:true}));
+
+  // Deduplicate movies + trending
+  const seenIds = new Set(movieList.map(m => m.tmdb_id));
+  const freshTrending = trendList.filter(t => !seenIds.has(t.tmdb_id));
+
   return {
-    movies: (movies?.results||[]).filter(m=>m.poster_path).slice(0,15).map(m=>fmt(m,'movie')),
-    series: (tv?.results||[]).filter(s=>s.poster_path).slice(0,8).map(s=>fmt(s,'series')),
+    movies: [...movieList, ...freshTrending].slice(0, 18),
+    series: tvList,
   };
 }
 
 // Get director picks available on user's platforms
+// Fetch RT + Metacritic scores from OMDB
+async function getOMDBRatings(title, year) {
+  const omdbKey = process.env.OMDB_API_KEY;
+  if (!omdbKey) return null;
+  try {
+    const url = `https://www.omdbapi.com/?t=${encodeURIComponent(title)}&y=${year || ''}&apikey=${omdbKey}`;
+    const res  = await fetch(url, { next: { revalidate: 86400 } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.Response === 'False') return null;
+    const rt  = data.Ratings?.find(r => r.Source === 'Rotten Tomatoes');
+    const mc  = data.Ratings?.find(r => r.Source === 'Metacritic');
+    return {
+      rt:  rt  ? parseInt(rt.Value)  : null,  // 0-100
+      mc:  mc  ? parseInt(mc.Value)  : null,  // 0-100
+      imdb: data.imdbRating ? parseFloat(data.imdbRating) : null,
+    };
+  } catch { return null; }
+}
+
+// Composite score: IMDB + RT + Metacritic + recency
+function compositeScore(item, omdb) {
+  const imdb       = omdb?.imdb || item.vote_average || 0;
+  const rt         = omdb?.rt   != null ? omdb.rt / 10 : imdb; // normalize to 0-10
+  const mc         = omdb?.mc   != null ? omdb.mc / 10 : imdb;
+  const base       = (imdb * 0.4) + (rt * 0.4) + (mc * 0.2);
+  const year       = parseInt(item.year || item.release_date?.slice(0,4)) || 2000;
+  const recency    = year >= 2022 ? 0.5 : year >= 2018 ? 0.3 : 0;
+  const popularity = Math.min((item.votes || item.vote_count || 0) / 10000, 0.5);
+  return base + recency + popularity;
+}
+
 async function getDirectorCandidates(platforms, moods, supabaseUrl, supabaseKey, tmdbToken) {
   if (!supabaseUrl || !supabaseKey) return [];
 
@@ -190,6 +260,10 @@ STRICT RULES:
 - For "adventure" mood: think Indiana Jones, The Goonies, Jurassic Park, Lord of the Rings — thrilling journeys, exotic locations, quests, survival, discovery. NOT superhero films, NOT franchise action.
 - For "horror" mood: prefer psychological, atmospheric, or elevated horror over pure gore.
 - For "smart" mood: think complex dramas, independent films, festival winners, foreign language films, documentaries — cerebral, challenging, rewarding cinema.
+- For "funny" mood: comedies, satires, screwballs — films that are genuinely funny. Absolutely NO horror, NO war, NO dark dramas. If a candidate doesn't fit the mood at all, skip it even if the rating is high.
+- For "romantic" mood: love stories, relationship dramas — emotional and tender. NOT action, NOT horror.
+- For "family" mood: all-ages films, animated films, coming-of-age stories. Light, joyful, accessible.
+- STRICT: Never recommend a horror or dark film for a funny/family/romantic mood. Mood matching is the #1 priority over rating.
 - fred_note: direct, warm, witty. Max 18 words. Never generic.
 - letterboxd: true if rating >= 7.4 and votes >= 1500
 - For Director Pick: set pick_type to "wildcard", include director_name and director_quote
@@ -315,7 +389,23 @@ export async function GET(request) {
       getDirectorCandidates(platforms, moods, supabaseUrl, supabaseKey, tmdbToken),
     ]);
 
-    const picks = await curateWithClaude(regular, directorCandidates, platforms, moods, tasteProfile, excludeIds, anthropicKey);
+    // Enrich top candidates with OMDB ratings (top 8 by vote_average)
+    const topMovies = [...regular.movies].sort((a,b) => parseFloat(b.rating||0) - parseFloat(a.rating||0)).slice(0,8);
+    const omdbMap = {};
+    await Promise.all(topMovies.map(async m => {
+      const scores = await getOMDBRatings(m.title, m.year);
+      if (scores) omdbMap[m.tmdb_id] = scores;
+    }));
+
+    // Add composite score to candidates
+    const enrichedMovies = regular.movies.map(m => ({
+      ...m,
+      omdb:            omdbMap[m.tmdb_id] || null,
+      composite_score: compositeScore(m, omdbMap[m.tmdb_id] || null).toFixed(2),
+      rt_score:        omdbMap[m.tmdb_id]?.rt ? `${omdbMap[m.tmdb_id].rt}%` : null,
+    }));
+
+    const picks = await curateWithClaude({ ...regular, movies: enrichedMovies }, directorCandidates, platforms, moods, tasteProfile, excludeIds, anthropicKey);
 
     // Enforce 2 movies + 1 series, no duplicates
     const seen = new Set();
