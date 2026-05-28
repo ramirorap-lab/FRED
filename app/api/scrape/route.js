@@ -75,8 +75,7 @@ async function fetchRedditPosts(source) {
   try {
     const res = await fetch(source.url, {
       headers: {
-        'User-Agent': 'Fred-FilmApp/1.0 (film recommendation app)',
-        'Accept':     'application/json',
+        'User-Agent': 'Mozilla/5.0 (compatible; FredApp/1.0; film recommendations)',
       },
     });
     if (!res.ok) {
