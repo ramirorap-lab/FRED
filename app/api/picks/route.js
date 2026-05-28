@@ -297,9 +297,12 @@ Respond ONLY with valid JSON array, no markdown:
     body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1400, messages: [{ role: 'user', content: prompt }] }),
   });
   const d = await r.json();
-  const text = d.content?.[0]?.text || '[]';
-  return JSON.parse(text.replace(/```json|```/g, '').trim());
-}
+const text  = d.content?.[0]?.text || '[]';
+const clean = text.replace(/```json|```/g, '').trim();
+// Extract JSON array even if Claude adds text around it
+const match = clean.match(/\[[\s\S]*\]/);
+if (!match) return [];
+return JSON.parse(match[0]);
 
 // Get real platform for a title
 async function enrichPlatform(tmdbId, type, title, year, platformIds, token) {
