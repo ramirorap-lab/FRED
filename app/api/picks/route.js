@@ -92,10 +92,14 @@ async function getRegularCandidates(platforms, moods, token) {
     with_genres: movieGenres,
     ...(providerIds && { with_watch_providers: providerIds }),
   });
+  // For series: broad pool without genre filter — Claude picks by mood
+  // TMDB genre tagging for series is unreliable, better to let Claude decide
   const tP = new URLSearchParams({
-    ...base, ...tvYearFilter,
-    with_genres: tvGenres,
-    'vote_count.gte': '150',
+    watch_region: 'US', language: 'en-US',
+    'vote_count.gte': '200',
+    'vote_average.gte': '7.0',
+    sort_by: sort,
+    page,
     ...(providerIds && { with_watch_providers: providerIds }),
   });
 
@@ -124,8 +128,10 @@ async function getRegularCandidates(platforms, moods, token) {
   });
 
   const movieList   = (movies?.results||[]).filter(m=>m.poster_path).slice(0,15).map(m=>fmt(m,'movie'));
-  const tvList      = (tv?.results||[]).filter(s=>s.poster_path).slice(0,8).map(s=>fmt(s,'series'));
+  let   tvList      = (tv?.results||[]).filter(s=>s.poster_path).slice(0,12).map(s=>fmt(s,'series'));
   const trendList   = (trending?.results||[]).filter(m=>m.poster_path).slice(0,5).map(m=>({...fmt(m,'movie'), trending:true}));
+
+
 
   // Deduplicate movies + trending
   const seenIds = new Set(movieList.map(m => m.tmdb_id));
