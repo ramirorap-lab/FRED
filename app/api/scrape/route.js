@@ -11,22 +11,21 @@ const TMDB = 'https://api.themoviedb.org/3';
 const REDDIT_SOURCES = [
   {
     id:  'reddit_moviesuggestions',
-    url: 'https://www.reddit.com/r/MovieSuggestions/top.json?t=month&limit=50',
+    url: 'https://old.reddit.com/r/MovieSuggestions/top.json?t=month&limit=50',
   },
   {
     id:  'reddit_truefilm',
-    url: 'https://www.reddit.com/r/TrueFilm/top.json?t=month&limit=50',
+    url: 'https://old.reddit.com/r/TrueFilm/top.json?t=month&limit=50',
   },
   {
     id:  'reddit_criterion',
-    url: 'https://www.reddit.com/r/criterion/top.json?t=month&limit=30',
+    url: 'https://old.reddit.com/r/criterion/top.json?t=month&limit=30',
   },
   {
     id:  'reddit_horror',
-    url: 'https://www.reddit.com/r/horror/top.json?t=month&limit=30',
+    url: 'https://old.reddit.com/r/horror/top.json?t=month&limit=30',
   },
 ];
-
 // Keywords that suggest a film title is being mentioned
 const TITLE_PATTERNS = [
   /\bwatched\s+["']?([A-Z][^"'\n]+?)["']?\s+(?:last|tonight|yesterday|and|,)/gi,
