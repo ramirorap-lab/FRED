@@ -1,57 +1,143 @@
 import { NextResponse } from 'next/server';
 
-const SYSTEM_PROMPT = `You are Fred, a sharp cinephile with strong opinions and excellent taste.
+// TMDB genre IDs
+const GENRE_MAP = {
+  comedy: 35, thriller: 53, horror: 27, romance: 10749,
+  drama: 18, action: 28, documentary: 99, animation: 16,
+  'sci-fi': 878, mystery: 9648, crime: 80,
+};
 
-TODAY'S DATE: May 2026. You know what's current. Your knowledge covers films and shows through early 2026.
+// Detect year mentions like "2025", "last year", "this year"
+function extractYear(text) {
+  const match = text.match(/\b(20\d{2})\b/);
+  if (match) return match[1];
+  if (/this year/i.test(text)) return '2026';
+  if (/last year/i.test(text)) return '2025';
+  return null;
+}
 
-ACCURACY RULES — these override everything:
-- GENRE MATCH IS MANDATORY. If asked for a comedy, recommend a comedy. If asked for a thriller, recommend a thriller. Never recommend a drama when comedy is asked. Never mix genres.
-- Only recommend titles you are CERTAIN exist. If unsure a title is real, pick a different one you are sure about.
-- Only state a platform if you are CERTAIN the title streams there. If unsure, write "Check streaming" for platform.
-- Only state the correct year/era. A "2025 comedy" must be from 2025. Don't recommend a 2022 film for a 2025 query.
-- If you cannot think of a real, verified title that matches the request, say so honestly in one sentence.
+// Detect genre keywords
+function extractGenre(text) {
+  const t = text.toLowerCase();
+  for (const [name, id] of Object.entries(GENRE_MAP)) {
+    if (t.includes(name)) return { name, id };
+  }
+  return null;
+}
 
-STYLE RULES:
-- Answer in 1–2 sentences MAX. No padding.
-- Give ONE specific title. Not two, not a list.
-- Never start with "Oh", "Look", "Well", "Sure", or any filler.
-- Never ask a follow-up question.
-- Never say "I think", "I'd suggest" — just state the title and why.
+// Search TMDB for best matching title
+async function searchTMDB(genre, year, platforms, tmdbToken) {
+  const params = new URLSearchParams({
+    sort_by: 'vote_average.desc',
+    'vote_count.gte': '50',
+    with_genres: genre.id,
+    language: 'en-US',
+    include_adult: 'false',
+    page: '1',
+  });
 
-FORMAT — respond EXACTLY like this:
-[1-2 sentence response with title and reason.]
-→ TITLE | PLATFORM | RUNTIME_OR_SEASONS
+  if (year) {
+    params.set('primary_release_year', year);
+  }
 
-Good examples:
-"Challengers. A love triangle through the lens of competitive tennis — sharp, sexy, propulsive."
-→ Challengers | Prime Video | 2h 11m
+  // Map platform names to TMDB provider IDs
+  const PROVIDER_IDS = {
+    'Netflix': '8', 'Prime Video': '9', 'Hulu': '15',
+    'Max': '1899', 'Apple TV+': '350', 'Disney+': '337', 'Peacock': '386',
+  };
+  const providerIds = platforms
+    .map(p => PROVIDER_IDS[p])
+    .filter(Boolean)
+    .join('|');
+  if (providerIds) {
+    params.set('with_watch_providers', providerIds);
+    params.set('watch_region', 'US');
+  }
 
-"Adolescence. Four episodes, one continuous shot each. You won't recover."
-→ Adolescence | Netflix | 4 episodes
+  const res = await fetch(
+    `https://api.themoviedb.org/3/discover/movie?${params}`,
+    { headers: { Authorization: `Bearer ${tmdbToken}` } }
+  );
+  const data = await res.json();
+  return data.results?.[0] || null;
+}
 
-"A Real Pain. Two cousins, a Holocaust memorial trip, and the funniest sad film of 2024."
-→ A Real Pain | Hulu | 1h 30m
+// Get streaming providers for a movie
+async function getProviders(movieId, tmdbToken) {
+  const res = await fetch(
+    `https://api.themoviedb.org/3/movie/${movieId}/watch/providers`,
+    { headers: { Authorization: `Bearer ${tmdbToken}` } }
+  );
+  const data = await res.json();
+  const us = data.results?.US;
+  const flatrate = us?.flatrate?.[0]?.provider_name;
+  return flatrate || 'Check streaming';
+}
 
-BAD examples (never do this):
-- Recommending a drama when asked for a comedy
-- Stating Netflix/Hulu/etc. if you're not sure the title is there
-- Recommending a 2022 film when asked about 2025`;
+const SYSTEM_PROMPT = `You are Fred, a sharp cinephile. You will be given a real film with its actual data. Write ONE punchy recommendation for it.
+
+RULES:
+- 1–2 sentences MAX. No filler.
+- Never start with "Oh", "Look", "Well", "Sure".
+- Don't mention the title in the text — it's shown in the card below.
+- Write WHY it's worth watching. Sharp, specific, no generic praise.
+
+FORMAT — respond EXACTLY like this, nothing else:
+[1-2 sentence reason to watch, no title mention.]
+→ TITLE | PLATFORM | RUNTIME`;
 
 export async function POST(req) {
   const { message, platforms = [], moods = [], conversationHistory = [] } = await req.json();
   const apiKey = process.env.ANTHROPIC_API_KEY;
+  const tmdbToken = process.env.TMDB_TOKEN;
 
-  if (!apiKey) {
-    return NextResponse.json({ error: 'API key missing' }, { status: 500 });
+  if (!apiKey) return NextResponse.json({ error: 'API key missing' }, { status: 500 });
+
+  const genre = extractGenre(message);
+  const year = extractYear(message);
+
+  // If we can detect genre/year, use TMDB to ground the answer
+  let groundedContext = '';
+  let tmdbTitle = null;
+  let platform = 'Check streaming';
+
+  if (genre && tmdbToken) {
+    try {
+      tmdbTitle = await searchTMDB(genre, year, platforms, tmdbToken);
+      if (tmdbTitle) {
+        platform = await getProviders(tmdbTitle.id, tmdbToken);
+        const runtimeRes = await fetch(
+          `https://api.themoviedb.org/3/movie/${tmdbTitle.id}?language=en-US`,
+          { headers: { Authorization: `Bearer ${tmdbToken}` } }
+        );
+        const runtimeData = await runtimeRes.json();
+        const mins = runtimeData.runtime || 0;
+        const runtime = mins ? `${Math.floor(mins / 60)}h ${mins % 60}m` : '';
+
+        groundedContext = `
+FILM TO RECOMMEND:
+Title: ${tmdbTitle.title}
+Year: ${tmdbTitle.release_date?.slice(0, 4)}
+Genre: ${genre.name}
+Rating: ${tmdbTitle.vote_average?.toFixed(1)}/10 (${tmdbTitle.vote_count} votes)
+Overview: ${tmdbTitle.overview}
+Platform: ${platform}
+Runtime: ${runtime}
+
+Write a sharp 1-2 sentence recommendation for this specific film. Do not mention the title.
+Format: [reason]
+→ ${tmdbTitle.title} | ${platform} | ${runtime}`;
+      }
+    } catch (e) {
+      console.error('TMDB lookup failed:', e);
+    }
   }
 
-  const contextLine = platforms.length || moods.length
-    ? `\n(User platforms: ${platforms.join(', ')}${moods.length ? ` | mood: ${moods.join(', ')}` : ''})`
-    : '';
+  const userMessage = groundedContext || message;
 
   const messages = [
-    ...conversationHistory.slice(-6),
-    { role: 'user', content: message + contextLine },
+    ...(!groundedContext ? conversationHistory.slice(-6) : []),
+    { role: 'user', content: userMessage },
   ];
 
   try {
@@ -77,6 +163,27 @@ export async function POST(req) {
     const arrowLine = lines.find(l => l.trim().startsWith('→')) || '';
     const responseText = lines.filter(l => !l.trim().startsWith('→')).join(' ').trim();
     const parts = arrowLine.replace('→', '').split('|').map(s => s.trim());
+
+    // If TMDB gave us a result, use that data directly (don't trust Haiku's arrow line)
+    if (tmdbTitle) {
+      const runtimeRes = await fetch(
+        `https://api.themoviedb.org/3/movie/${tmdbTitle.id}?language=en-US`,
+        { headers: { Authorization: `Bearer ${tmdbToken}` } }
+      );
+      const rd = await runtimeRes.json();
+      const mins = rd.runtime || 0;
+      const runtime = mins ? `${Math.floor(mins / 60)}h ${mins % 60}m` : '';
+
+      return NextResponse.json({
+        text: responseText || parts[0] || '',
+        title: tmdbTitle.title,
+        platform,
+        runtime,
+        meta: `${platform} · ${runtime}`,
+        poster: tmdbTitle.poster_path,
+        tmdb_id: tmdbTitle.id,
+      });
+    }
 
     return NextResponse.json({
       text: responseText,
