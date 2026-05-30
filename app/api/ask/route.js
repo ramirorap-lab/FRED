@@ -170,6 +170,8 @@ Write the 2-sentence response.`,
 }
 
 // ── Main handler ──
+console.log('HISTORY:', JSON.stringify(conversationHistory.slice(-4), null, 2));
+console.log('MESSAGE:', message);
 export async function POST(req) {
   const {
     message,
