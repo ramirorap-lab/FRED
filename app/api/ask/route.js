@@ -22,15 +22,15 @@ function extractGenre(text) {
   return null;
 }
 
-// Detect "another", "different one", "something else", "next one" etc.
 function isFollowUp(text) {
   return /\b(another|different|else|next|other|more|again|instead)\b/i.test(text);
 }
 
-async function searchTMDB(genre, year, platforms, tmdbToken, excludeId = null) {
+async function searchTMDB(genre, year, platforms, tmdbToken, excludeIds = []) {
   const params = new URLSearchParams({
     sort_by: 'vote_average.desc',
-    'vote_count.gte': '50',
+    'vote_count.gte': '500',        // enough votes to be a real known film
+    'vote_average.gte': '7.0',      // only genuinely good films
     with_genres: genre.id,
     language: 'en-US',
     include_adult: 'false',
@@ -54,9 +54,9 @@ async function searchTMDB(genre, year, platforms, tmdbToken, excludeId = null) {
     { headers: { Authorization: `Bearer ${tmdbToken}` } }
   );
   const data = await res.json();
-  // Skip the excluded title (previously recommended)
   const results = data.results || [];
-  return results.find(r => r.id !== excludeId) || results[0] || null;
+  // Skip all previously shown IDs
+  return results.find(r => !excludeIds.includes(r.id)) || results[0] || null;
 }
 
 async function getMovieDetails(movieId, tmdbToken) {
@@ -71,17 +71,15 @@ async function getMovieDetails(movieId, tmdbToken) {
   const platform = providers.results?.US?.flatrate?.[0]?.provider_name || 'Check streaming';
   const mins = detail.runtime || 0;
   const runtime = mins ? `${Math.floor(mins / 60)}h ${mins % 60}m` : '';
-  return { platform, runtime, detail };
+  return { platform, runtime };
 }
 
-// System prompt for when we have grounded TMDB data
 const GROUNDED_PROMPT = `You are Fred, a sharp cinephile. Write a punchy 1-2 sentence pitch for the film below.
-- Do NOT mention the title — it appears in the card
+- Do NOT mention the title — it appears in the card below
 - No filler words, no "I", no "you might enjoy"
 - Just: what makes it worth watching, specifically
-Only output the pitch. Nothing else.`;
+Only output the pitch sentence(s). Nothing else.`;
 
-// System prompt for open-ended / vibe-based queries
 const FREEFORM_PROMPT = `You are Fred, a sharp cinephile with strong opinions.
 
 TODAY: May 2026. Knowledge through early 2026.
@@ -90,7 +88,6 @@ RULES:
 - 1-2 sentences MAX. No padding.
 - Give ONE real title you are 100% certain exists.
 - Never ask the user for information.
-- If asked for "another" or "different" option, give a genuinely different title.
 - Never start with "Oh", "Look", "Well", "Sure", "I'd be happy".
 - Never say "I need you to..." or ask for data.
 
@@ -99,26 +96,34 @@ FORMAT:
 → TITLE | PLATFORM | RUNTIME`;
 
 export async function POST(req) {
-  const { message, platforms = [], moods = [], conversationHistory = [], lastTmdbId = null } = await req.json();
+  const {
+    message,
+    platforms = [],
+    moods = [],
+    conversationHistory = [],
+    lastTmdbId = null,
+    seenTmdbIds = [],   // array of all shown IDs this session
+  } = await req.json();
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const tmdbToken = process.env.TMDB_TOKEN;
 
   if (!apiKey) return NextResponse.json({ error: 'API key missing' }, { status: 500 });
 
   const followUp = isFollowUp(message);
-  const genre = extractGenre(message);
-  const year = extractYear(message);
 
-  // For follow-ups, try to inherit genre/year from conversation history
-  let resolvedGenre = genre;
-  let resolvedYear = year;
-  if (followUp && !genre) {
-    for (const msg of [...conversationHistory].reverse()) {
-      if (msg.role === 'user') {
-        resolvedGenre = resolvedGenre || extractGenre(msg.content);
-        resolvedYear = resolvedYear || extractYear(msg.content);
-        if (resolvedGenre) break;
-      }
+  // Direct genre from current message
+  let resolvedGenre = extractGenre(message);
+  let resolvedYear = extractYear(message);
+
+  // For follow-ups without explicit genre, scan back through history
+  if (!resolvedGenre) {
+    const history = [...conversationHistory].reverse();
+    for (const msg of history) {
+      const content = msg.content || msg.text || '';
+      if (!resolvedGenre) resolvedGenre = extractGenre(content);
+      if (!resolvedYear) resolvedYear = extractYear(content);
+      if (resolvedGenre) break;
     }
   }
 
@@ -128,8 +133,9 @@ export async function POST(req) {
 
   if (resolvedGenre && tmdbToken) {
     try {
-      const excludeId = followUp ? lastTmdbId : null;
-      tmdbTitle = await searchTMDB(resolvedGenre, resolvedYear, platforms, tmdbToken, excludeId);
+      // Exclude all previously seen IDs, not just the last one
+      const excludeIds = seenTmdbIds.length ? seenTmdbIds : (lastTmdbId ? [lastTmdbId] : []);
+      tmdbTitle = await searchTMDB(resolvedGenre, resolvedYear, platforms, tmdbToken, excludeIds);
       if (tmdbTitle) {
         const details = await getMovieDetails(tmdbTitle.id, tmdbToken);
         platform = details.platform;
@@ -140,7 +146,6 @@ export async function POST(req) {
     }
   }
 
-  // Build prompt
   const systemPrompt = tmdbTitle ? GROUNDED_PROMPT : FREEFORM_PROMPT;
 
   const userContent = tmdbTitle
@@ -192,7 +197,6 @@ Write the pitch.`
       });
     }
 
-    // Freeform: parse arrow line
     const lines = text.split('\n').filter(Boolean);
     const arrowLine = lines.find(l => l.trim().startsWith('→')) || '';
     const responseText = lines.filter(l => !l.trim().startsWith('→')).join(' ').trim();
