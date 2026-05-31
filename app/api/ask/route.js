@@ -29,7 +29,7 @@ Critical rules:
 - "another one" / "different one" / "something else" = inherit the genre from earlier in the conversation. Set needs_recommendation: true.
 - "I meant comedy" / "no, give me a comedy" = user is correcting the genre. Use the corrected genre. Set needs_recommendation: true.
 - "ok another one" after a clarification question = user confirmed, keep the same genre context. Set needs_recommendation: true.
-- Always exclude films already shown (check for tmdb_id in the conversation).
+- Always exclude films already shown. TMDB IDs are embedded in assistant messages as [tmdb_id:NUMBER]. Extract ALL of these numbers into exclude_ids.
 - Output ONLY valid JSON. No markdown, no explanation outside the JSON.`;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -188,7 +188,10 @@ export async function POST(req) {
     .slice(-10)
     .map(m => ({
       role: m.role === 'fred' ? 'assistant' : 'user',
-      content: m.text || m.content || '',
+      // Embed tmdb_id into the text so the interpret step can see it
+      content: m.tmdb_id
+        ? `${m.text || m.content || ''} [tmdb_id:${m.tmdb_id}]`
+        : (m.text || m.content || ''),
     }));
 
   const allMessages = [...historyMessages, { role: 'user', content: message }];
