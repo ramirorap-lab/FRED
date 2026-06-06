@@ -154,16 +154,15 @@ async function searchTMDB(params, platforms, tmdbToken) {
 async function getDetails(id, isSeries, tmdbToken) {
   const base = isSeries ? `https://api.themoviedb.org/3/tv/${id}` : `https://api.themoviedb.org/3/movie/${id}`;
 
-  const [detailRes, providerRes, imagesRes] = await Promise.all([
+  const [detailRes, providerRes] = await Promise.all([
     fetch(`${base}?language=en-US`, { headers: { Authorization: `Bearer ${tmdbToken}` } }),
     fetch(`${base}/watch/providers`, { headers: { Authorization: `Bearer ${tmdbToken}` } }),
-    fetch(`${base}/images`, { headers: { Authorization: `Bearer ${tmdbToken}` } }),
   ]);
 
   const detail    = await detailRes.json();
   const providers = await providerRes.json();
-  const images    = await imagesRes.json();
 
+  // Use first flatrate provider only — cleaner display
   const platform  = providers.results?.US?.flatrate?.[0]?.provider_name || 'Check streaming';
 
   let runtime = '';
@@ -175,22 +174,19 @@ async function getDetails(id, isSeries, tmdbToken) {
     runtime = mins ? `${Math.floor(mins / 60)}h ${mins % 60}m` : '';
   }
 
-  // Best backdrop: English, sorted by vote_average
-  const backdrops = images.backdrops || [];
-  const backdrop = backdrops
-    .filter(b => !b.iso_639_1 || b.iso_639_1 === 'en')
-    .sort((a, b) => b.vote_average - a.vote_average)[0]
-    ?.file_path || detail.backdrop_path || null;
+  // backdrop_path from detail is reliable — no extra /images call needed
+  const backdrop = detail.backdrop_path || null;
+  const poster   = detail.poster_path   || null;
 
   // Awards
   const awards = AWARDS_DB[id] || null;
   let awardBadge = null;
-  if (awards?.oscar === 'Winner')    awardBadge = '🏆 Oscar Winner';
+  if (awards?.oscar === 'Winner')         awardBadge = '🏆 Oscar Winner';
   else if (awards?.oscar === 'Nominated') awardBadge = '🎬 Oscar Nominated';
-  else if (awards?.cannes)           awardBadge = `🌿 Cannes ${awards.cannes}`;
-  else if (awards?.bafta === 'Winner') awardBadge = '🎭 BAFTA Winner';
+  else if (awards?.cannes)                awardBadge = `🌿 Cannes ${awards.cannes}`;
+  else if (awards?.bafta === 'Winner')    awardBadge = '🎭 BAFTA Winner';
 
-  return { platform, runtime, awardBadge, backdrop, poster: detail.poster_path || null };
+  return { platform, runtime, awardBadge, backdrop, poster };
 }
 
 // ── Step 4: Write pitch ──
@@ -211,15 +207,16 @@ async function writePitch(film, platform, runtime, searchParams, awardBadge, api
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 120,
-      system: `You are Fred, a sharp cinephile. Write EXACTLY 2 sentences. Stop after the second period. No exceptions.
+      system: `You are Fred, a sharp cinephile. Write EXACTLY 2 sentences. Stop after the second period.
 
-Sentence 1: One sharp claim about why this fits the request — mention the year or genre asked for, drop in the rating number naturally. Max 20 words.
-Sentence 2: The single most interesting thing about this film. Not a plot summary. Max 20 words.
+Sentence 1: Why this film fits the request. Mention genre/year/rating naturally. Max 20 words.
+Sentence 2: The one thing that makes it unmissable. Max 20 words.
 
-Rules:
-- Do NOT mention the title
-- No filler, no "I", no "you might enjoy", no "this film"
-- HARD LIMIT: 2 sentences, then stop. Count them.`,
+HARD RULES:
+- ONE film only. Never suggest alternatives.
+- Do NOT mention the title.
+- No "I", no "you might enjoy", no "this film".
+- 2 sentences. Full stop. Nothing after.`,
       messages: [{
         role: 'user',
         content: `User asked for: ${queryDesc}
@@ -300,7 +297,7 @@ export async function POST(req) {
         platform, runtime, rating,
         awardBadge: awardBadge || null,
         meta: `${platform} · ${runtime}`,
-        poster: details.poster || film.poster_path || null,
+        poster:   details.poster   || film.poster_path   || null,
         backdrop: details.backdrop || film.backdrop_path || null,
         tmdb_id: film.id,
       });
