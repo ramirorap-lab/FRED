@@ -139,6 +139,9 @@ export async function GET(req) {
   const moods      = (searchParams.get('moods')     || '').split(',').filter(Boolean);
   const excludeRaw = (searchParams.get('exclude')   || '').split(',').filter(Boolean);
   const exclude    = excludeRaw.map(Number).filter(Boolean);
+  // If there are exclusions (i.e. a refresh), randomise the page so we get different results
+  const isRefresh  = exclude.length > 0;
+  const page       = isRefresh ? Math.floor(Math.random() * 3) + 1 : 1;
 
   const apiKey    = process.env.ANTHROPIC_API_KEY;
   const tmdbToken = process.env.TMDB_TOKEN;
@@ -154,9 +157,9 @@ export async function GET(req) {
     // Slot 2: Best rated all-time for mood (different result)
     // Slot 3: RECENT (2025/2026) highly rated — always fresh
     const [allTimeResults, recentResults, seriesResults] = await Promise.all([
-      tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: false, moods }, tmdbToken),
-      tmdbDiscover({ genreIds, platforms, exclude, recentOnly: true,  isSeries: false, moods }, tmdbToken),
-      tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: true,  moods }, tmdbToken),
+      tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: false, moods, page }, tmdbToken),
+      tmdbDiscover({ genreIds, platforms, exclude, recentOnly: true,  isSeries: false, moods, page: 1 }, tmdbToken),
+      tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: true,  moods, page }, tmdbToken),
     ]);
 
     // Pick slot 1: top all-time film
