@@ -16,6 +16,16 @@ const MOOD_GENRE_MAP = {
   family:    [10751, 16],
 };
 
+// When moods combine, use these specific genre combos instead of OR-ing everything
+const MOOD_COMBO_MAP = {
+  'funny+smart': [35, 18],      // comedy-drama
+  'smart+funny': [35, 18],
+  'funny+dark':  [35, 53],      // dark comedy
+  'dark+funny':  [35, 53],
+  'funny+romantic': [35, 10749],
+  'romantic+funny': [35, 10749],
+};
+
 const AWARDS_DB = {
   497698: { oscar: 'Winner' }, 603692: { oscar: 'Winner' },
   661374: { oscar: 'Winner' }, 872585: { oscar: 'Winner' },
@@ -34,11 +44,16 @@ function awardBadge(id) {
   return null;
 }
 
-async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries, page = 1 }, tmdbToken) {
+async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries, page = 1, moods = [] }, tmdbToken) {
   const providerIds = platforms.map(p => PROVIDER_IDS[p]).filter(Boolean).join('|');
   const endpoint = isSeries
     ? 'https://api.themoviedb.org/3/discover/tv'
     : 'https://api.themoviedb.org/3/discover/movie';
+
+  // Check for a specific mood combo override
+  const comboKey = moods.slice().sort().join('+');
+  const comboGenres = MOOD_COMBO_MAP[comboKey];
+  const resolvedGenreIds = comboGenres || genreIds;
 
   const params = new URLSearchParams({
     sort_by: recentOnly ? 'popularity.desc' : 'vote_average.desc',
@@ -49,15 +64,19 @@ async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries
     page: String(page),
   });
 
-  if (genreIds?.length) params.set('with_genres', genreIds.join('|'));
+  if (resolvedGenreIds?.length) {
+    // Use AND (,) for combos so film must match all genres, OR (|) for single mood
+    const separator = comboGenres ? ',' : '|';
+    params.set('with_genres', resolvedGenreIds.join(separator));
+  }
 
-  if (recentOnly) {
-    // 2025 + 2026
-    if (isSeries) {
-      params.set('first_air_date.gte', '2025-01-01');
-    } else {
-      params.set('primary_release_date.gte', '2025-01-01');
-    }
+  // Non-recent: bias toward last 15 years to avoid only getting classics
+  if (!recentOnly) {
+    if (isSeries) params.set('first_air_date.gte', '2000-01-01');
+    else          params.set('primary_release_date.gte', '2000-01-01');
+  } else {
+    if (isSeries) params.set('first_air_date.gte', '2025-01-01');
+    else          params.set('primary_release_date.gte', '2025-01-01');
   }
 
   if (providerIds) {
@@ -135,9 +154,9 @@ export async function GET(req) {
     // Slot 2: Best rated all-time for mood (different result)
     // Slot 3: RECENT (2025/2026) highly rated — always fresh
     const [allTimeResults, recentResults, seriesResults] = await Promise.all([
-      tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: false }, tmdbToken),
-      tmdbDiscover({ genreIds, platforms, exclude, recentOnly: true,  isSeries: false }, tmdbToken),
-      tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: true  }, tmdbToken),
+      tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: false, moods }, tmdbToken),
+      tmdbDiscover({ genreIds, platforms, exclude, recentOnly: true,  isSeries: false, moods }, tmdbToken),
+      tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: true,  moods }, tmdbToken),
     ]);
 
     // Pick slot 1: top all-time film
