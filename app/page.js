@@ -71,16 +71,19 @@ const I = {
   Eye:      () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
 };
 
-function Poster({ poster, title, bg }) {
+function Poster({ poster, title, bg, useBackdrop }) {
   const [failed, setFailed] = useState(false);
+  // Backdrops use w1280 for crisp 16:9, posters use w500
+  const size = useBackdrop ? 'w1280' : 'w500';
   return (
     <>
       <div className={`poster-ph ${bg}`}>{title?.charAt(0)}</div>
       {poster && !failed && (
         <img
-          src={`https://image.tmdb.org/t/p/w500${poster}`}
+          src={`https://image.tmdb.org/t/p/${size}${poster}`}
           alt={title}
           className="poster-img"
+          style={{ objectPosition: useBackdrop ? 'center center' : 'center top' }}
           onError={() => setFailed(true)}
         />
       )}
@@ -704,7 +707,7 @@ export default function Fred() {
                   </div>
                   <div className="card">
                     <div className={`poster-wrap ${bg}`}>
-                      <Poster poster={pick.poster} title={pick.title} bg={bg} />
+                      <Poster poster={pick.backdrop || pick.poster} title={pick.title} bg={bg} useBackdrop={!!pick.backdrop} />
                       <div className="poster-grad"/>
                       <div className="poster-title-ov">{pick.title}</div>
                       {pick.letterboxd && (
