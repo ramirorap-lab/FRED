@@ -86,6 +86,16 @@ Critical rules:
   catch { return {}; }
 }
 
+// ── Search TMDB by exact title ──
+async function searchByTitle(title, tmdbToken) {
+  const res = await fetch(
+    `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(title)}&language=en-US`,
+    { headers: { Authorization: `Bearer ${tmdbToken}` } }
+  );
+  const data = await res.json();
+  return data.results?.[0] || null;
+}
+
 // ── Search by actor/director name ──
 async function searchByPerson(name, tmdbToken) {
   // Find person
@@ -370,10 +380,34 @@ FORMAT: [2 sentence pitch with title at the end.]
     const arrowLine = lines.find(l => l.trim().startsWith('→')) || '';
     const respText  = lines.filter(l => !l.trim().startsWith('→')).join(' ').trim();
     const parts     = arrowLine.replace('→', '').split('|').map(s => s.trim());
+    const titleGuess = parts[0] || '';
+
+    // Even in fallback — search TMDB by title to always get a real card
+    if (titleGuess && tmdbToken) {
+      try {
+        const fallbackFilm = await searchByTitle(titleGuess, tmdbToken);
+        if (fallbackFilm) {
+          const fallbackDetails = await getDetails(fallbackFilm.id, false, tmdbToken);
+          return NextResponse.json({
+            text:     respText || text,
+            title:    fallbackFilm.title,
+            platform: fallbackDetails.platform,
+            runtime:  fallbackDetails.runtime,
+            rating:   fallbackFilm.vote_average?.toFixed(1) || null,
+            meta:     `${fallbackDetails.platform} · ${fallbackDetails.runtime}`,
+            poster:   fallbackDetails.poster   || fallbackFilm.poster_path   || null,
+            backdrop: fallbackDetails.backdrop || fallbackFilm.backdrop_path || null,
+            tmdb_id:  fallbackFilm.id,
+          });
+        }
+      } catch (e) {
+        console.error('Fallback title search failed:', e);
+      }
+    }
 
     return NextResponse.json({
       text: respText || text,
-      title: parts[0] || '', platform: parts[1] || '', runtime: parts[2] || '',
+      title: titleGuess, platform: parts[1] || '', runtime: parts[2] || '',
       meta: parts.slice(1).join(' · '),
     });
 
