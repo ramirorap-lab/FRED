@@ -1,4 +1,10 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 const PROVIDER_IDS = {
   'Netflix': '8', 'Prime Video': '9', 'Hulu': '15',
@@ -38,6 +44,19 @@ function awardBadge(id) {
   if (a.oscar === 'Nominated') return '🎬 Oscar Nominated';
   if (a.cannes)                return `🌿 Cannes ${a.cannes}`;
   return null;
+}
+
+// Fetch a trending pick from Supabase reddit_picks table
+async function getRedditPick(exclude = []) {
+  const { data, error } = await supabase
+    .from('reddit_picks')
+    .select('*')
+    .order('mention_count', { ascending: false })
+    .limit(20);
+
+  if (error || !data?.length) return null;
+  const excludeSet = new Set(exclude);
+  return data.find(r => !excludeSet.has(r.tmdb_id)) || null;
 }
 
 async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries, page = 1, moods = [] }, tmdbToken) {
@@ -154,10 +173,11 @@ export async function GET(req) {
   const genreIds = [...new Set(moods.flatMap(m => MOOD_GENRE_MAP[m] || []))];
 
   try {
-    const [allTimeResults, recentResults, seriesResults] = await Promise.all([
+    const [allTimeResults, recentResults, seriesResults, redditPick] = await Promise.all([
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: false, moods, page }, tmdbToken),
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: true,  isSeries: false, moods, page: 1 }, tmdbToken),
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: true,  moods, page }, tmdbToken),
+      getRedditPick(exclude),
     ]);
 
     const film1   = allTimeResults[0] || null;
@@ -165,6 +185,9 @@ export async function GET(req) {
     const usedIds = new Set([film1?.id, film2?.id].filter(Boolean));
     const film3   = recentResults.find(r => !usedIds.has(r.id)) || null;
     const series1 = seriesResults[0] || null;
+
+    // Reddit pick — only include if not already in slots
+    const redditFilm = redditPick && !usedIds.has(redditPick.tmdb_id) ? redditPick : null;
 
     const slots = [film1, film2, film3, series1].filter(Boolean);
 
@@ -194,6 +217,28 @@ export async function GET(req) {
         is_recent:   isRecent,
       };
     }));
+
+    // Append reddit pick if available
+    if (redditFilm) {
+      const fredNote = apiKey ? await writeFredNote(redditFilm, false, apiKey) : '';
+      enriched.push({
+        id:          redditFilm.tmdb_id,
+        tmdb_id:     redditFilm.tmdb_id,
+        title:       redditFilm.title,
+        poster:      redditFilm.poster,
+        backdrop:    redditFilm.backdrop,
+        year:        redditFilm.year,
+        platform:    redditFilm.platform,
+        runtime:     '',
+        rating:      redditFilm.rating,
+        type:        'movie',
+        fred_note:   fredNote,
+        award_badge: awardBadge(redditFilm.tmdb_id),
+        pick_type:   'reddit',
+        is_recent:   false,
+        reddit_mention_count: redditFilm.mention_count,
+      });
+    }
 
     return NextResponse.json({ picks: enriched });
 
