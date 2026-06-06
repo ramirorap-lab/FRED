@@ -132,6 +132,25 @@ async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries
   return (data.results || []).filter(r => !excludeSet.has(r.id));
 }
 
+// Animation genre ID
+const ANIMATION_GENRE = 16;
+
+function isAnimated(film) {
+  return (film.genre_ids || []).includes(ANIMATION_GENRE);
+}
+
+// Cap animated films to 1 across all slots
+function capAnimation(results, maxAnimated = 1) {
+  let animCount = 0;
+  return results.filter(r => {
+    if (isAnimated(r)) {
+      animCount++;
+      return animCount <= maxAnimated;
+    }
+    return true;
+  });
+}
+
 async function getDetails(id, isSeries, tmdbToken) {
   const base = isSeries
     ? `https://api.themoviedb.org/3/tv/${id}`
@@ -217,11 +236,20 @@ export async function GET(req) {
       getRedditPick(exclude, supabase),
     ]);
 
-    const film1   = allTimeResults[0] || null;
-    const film2   = allTimeResults.find(r => r.id !== film1?.id) || null;
+    // Cap animation to 1 slot across all-time results
+    const cappedAllTime = capAnimation(allTimeResults);
+    const film1   = cappedAllTime[0] || null;
+    const film2   = cappedAllTime.find(r => r.id !== film1?.id) || null;
     const usedIds = new Set([film1?.id, film2?.id].filter(Boolean));
-    const film3   = recentResults.find(r => !usedIds.has(r.id)) || null;
-    const series1 = seriesResults[0] || null;
+
+    // For recent + series, skip animated if we already have one
+    const alreadyHasAnimation = isAnimated(film1) || isAnimated(film2);
+    const film3   = recentResults.find(r =>
+      !usedIds.has(r.id) && !(alreadyHasAnimation && isAnimated(r))
+    ) || recentResults.find(r => !usedIds.has(r.id)) || null;
+    const series1 = seriesResults.find(r =>
+      !(alreadyHasAnimation && isAnimated(r))
+    ) || seriesResults[0] || null;
 
     // Reddit pick — only include if not already in slots
     const redditFilm = redditPick && !usedIds.has(redditPick.tmdb_id) ? redditPick : null;
