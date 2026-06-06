@@ -109,18 +109,16 @@ function FredCard({ msg, onSave }) {
               <div className="fred-pick-ph">{msg.title.charAt(0)}</div>
               {!posterFailed && (msg.backdrop || msg.poster) && (
                 <img
-                  src={`https://image.tmdb.org/t/p/${msg.backdrop ? 'w780' : 'w500'}${msg.backdrop || msg.poster}`}
+                  src={`https://image.tmdb.org/t/p/w780${msg.backdrop || msg.poster}`}
                   alt={msg.title}
-                  onError={(e) => {
-                    // If backdrop fails, try poster before giving up
-                    if (msg.backdrop && msg.poster && e.target.src.includes(msg.backdrop)) {
-                      e.target.src = `https://image.tmdb.org/t/p/w500${msg.poster}`;
-                      e.target.style.objectPosition = 'center top';
-                    } else {
-                      setPosterFailed(true);
-                    }
+                  onError={() => setPosterFailed(true)}
+                  style={{
+                    position: 'absolute', top: 0, left: 0,
+                    width: '100%', height: '100%',
+                    objectFit: 'cover',
+                    objectPosition: msg.backdrop ? 'center center' : 'center top',
                   }}
-                  style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', objectPosition: msg.backdrop ? 'center center' : 'center top' }} />
+                />
               )}
               <div className="fred-pick-grad" />
               <div className="fred-pick-title-ov">{msg.title}</div>
