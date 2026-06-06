@@ -120,6 +120,9 @@ function FredCard({ msg, onSave }) {
               )}
             </div>
             <div className="fred-pick-footer">
+              {msg.awardBadge && (
+                <div className="fred-award-badge">{msg.awardBadge}</div>
+              )}
               <div className="fred-pick-meta">
                 {[
                   msg.platform || (msg.meta ? msg.meta.split(' · ')[0] : ''),
@@ -283,7 +286,10 @@ export default function Fred() {
   const [authEmail,     setAuthEmail]     = useState('');
   const [authSent,      setAuthSent]      = useState(false);
   const [authLoading,   setAuthLoading]   = useState(false);
-  const chatRef = useRef(null);
+  const chatRef    = useRef(null);
+  const pullStartY  = useRef(null);
+  const [pullDist,       setPullDist]       = useState(0);
+  const [pullRefreshing, setPullRefreshing] = useState(false);
 
   const fetchPicks = useCallback(async (plats, mds, profile, seen) => {
     if (!plats.length) return;
@@ -480,6 +486,7 @@ export default function Fred() {
           poster: data.poster || null,
           tmdb_id: data.tmdb_id || null,
           rating: data.rating ? String(data.rating) : null,
+          awardBadge: data.awardBadge || null,
         };
         return u;
       });
@@ -499,6 +506,29 @@ export default function Fred() {
       setTimeout(() => chatRef.current?.scrollTo({
         top: chatRef.current.scrollHeight, behavior: 'smooth'
       }), 120);
+    }
+  }
+
+  // ── Pull-to-refresh handlers ──
+  function onTouchStart(e) {
+    const el = e.currentTarget;
+    if (el.scrollTop === 0) pullStartY.current = e.touches[0].clientY;
+  }
+  function onTouchMove(e) {
+    if (pullStartY.current === null) return;
+    const dist = e.touches[0].clientY - pullStartY.current;
+    if (dist > 0) setPullDist(Math.min(dist, 80));
+  }
+  async function onTouchEnd() {
+    if (pullDist > 55 && !pullRefreshing && !loading) {
+      setPullRefreshing(true);
+      setPullDist(0);
+      pullStartY.current = null;
+      await fetchPicks(platforms, moods, tasteProfile, watched);
+      setPullRefreshing(false);
+    } else {
+      setPullDist(0);
+      pullStartY.current = null;
     }
   }
 
@@ -565,7 +595,28 @@ export default function Fred() {
       </div>
 
       {/* PICKS */}
-      <div className={`screen ${screen==='tonight'?'active':''}`}>
+      <div
+        className={`screen ${screen==='tonight'?'active':''}`}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {/* Pull-to-refresh indicator */}
+        <div style={{
+          height: pullRefreshing ? 44 : pullDist * 0.5,
+          overflow: 'hidden',
+          transition: pullDist === 0 ? 'height .25s ease' : 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {(pullDist > 20 || pullRefreshing) && (
+            <div style={{display:'flex',alignItems:'center',gap:'8px',opacity: Math.min(pullDist/55,1)}}>
+              <div className="spinner" style={{width:'14px',height:'14px',borderWidth:'1.5px'}}/>
+              <span style={{fontSize:'11px',color:'var(--dim)',letterSpacing:'.06em'}}>
+                {pullRefreshing ? 'Refreshing…' : 'Pull to refresh'}
+              </span>
+            </div>
+          )}
+        </div>
         <div className="topbar">
           <div className="topbar-logo" onClick={() => go('taste')}>
             Fred{user && <span className="fred-online-dot"/>}
@@ -609,10 +660,12 @@ export default function Fred() {
                 )}
                 <div className={`pick-block ${flippingId === pick.id ? 'is-flipping' : ''} ${flippedIn === pick.id ? 'is-flipped-in' : ''}`}>
                   <div className="pick-header">
-                    <span className={`pick-label ${lbl.cls}`}>
-                      {pick.pick_type === 'wildcard' && pick.director_name
-                        ? `${pick.director_name.split(' ').pop()}'s Pick`
-                        : lbl.label}
+                    <span className={`pick-label ${pick.is_recent ? 'label-recent' : lbl.cls}`}>
+                      {pick.is_recent
+                        ? `✦ ${pick.year}`
+                        : pick.pick_type === 'wildcard' && pick.director_name
+                          ? `${pick.director_name.split(' ').pop()}'s Pick`
+                          : lbl.label}
                     </span>
                     <span className="pick-sep">·</span>
                     <span className={`type-badge ${pick.type === 'series' ? 'type-series' : 'type-film'}`}>
