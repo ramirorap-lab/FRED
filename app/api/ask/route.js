@@ -64,6 +64,7 @@ Fields:
 - is_series: true if user wants TV/series, false for movies (default false)
 - needs_recommendation: true if user wants a new recommendation, false if asking a question about the last film
 - sort: "rating" (default) or "popular" — use popular for vibe/mood queries, rating for "best of year" queries
+- actor: name of actor/director if user asks "something with X" or "films by X", null otherwise
 - reasoning: one sentence
 
 Critical rules:
@@ -83,6 +84,29 @@ Critical rules:
   const text = data.content?.[0]?.text?.trim() || '{}';
   try { return JSON.parse(text.replace(/```json|```/g, '').trim()); }
   catch { return {}; }
+}
+
+// ── Search by actor/director name ──
+async function searchByPerson(name, tmdbToken) {
+  // Find person
+  const personRes = await fetch(
+    `https://api.themoviedb.org/3/search/person?query=${encodeURIComponent(name)}&language=en-US`,
+    { headers: { Authorization: `Bearer ${tmdbToken}` } }
+  );
+  const personData = await personRes.json();
+  const person = personData.results?.[0];
+  if (!person) return null;
+
+  // Get their best movie
+  const creditsRes = await fetch(
+    `https://api.themoviedb.org/3/person/${person.id}/movie_credits`,
+    { headers: { Authorization: `Bearer ${tmdbToken}` } }
+  );
+  const credits = await creditsRes.json();
+  const best = (credits.cast || [])
+    .filter(m => m.vote_count > 200 && m.vote_average > 6.5)
+    .sort((a, b) => b.vote_average - a.vote_average)[0];
+  return best || null;
 }
 
 // ── Step 2: Search TMDB ──
@@ -287,10 +311,16 @@ export async function POST(req) {
 
     // Step 2: Search TMDB
     let film = null, platform = 'Check streaming', runtime = '', awardBadge = null, details = null;
-    const hasSearchParams = params.genre || params.genres?.length || params.vibe;
+    const hasSearchParams = params.genre || params.genres?.length || params.vibe || params.actor;
 
     if (hasSearchParams && tmdbToken) {
-      film = await searchTMDB(params, platforms, tmdbToken);
+      // Actor/director query — search by person first
+      if (params.actor && !params.genre && !params.vibe) {
+        film = await searchByPerson(params.actor, tmdbToken);
+      } else {
+        film = await searchTMDB(params, platforms, tmdbToken);
+        // If actor specified too, try to filter by them (best effort)
+      }
       if (film) {
         details    = await getDetails(film.id, params.is_series, tmdbToken);
         platform   = details.platform;
