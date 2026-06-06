@@ -146,7 +146,19 @@ async function searchTMDB(params, platforms, tmdbToken) {
     headers: { Authorization: `Bearer ${tmdbToken}` },
   });
   const data = await res.json();
-  const results = data.results || [];
+  let results = data.results || [];
+
+  // If provider filter returned nothing, retry without platform constraint
+  if (results.length === 0 && providerIds) {
+    searchParams.delete('with_watch_providers');
+    searchParams.delete('watch_region');
+    const res2 = await fetch(`${endpoint}?${searchParams}`, {
+      headers: { Authorization: `Bearer ${tmdbToken}` },
+    });
+    const data2 = await res2.json();
+    results = data2.results || [];
+  }
+
   return results.find(r => !exclude_ids.includes(r.id)) || results[0] || null;
 }
 
@@ -274,13 +286,13 @@ export async function POST(req) {
     }
 
     // Step 2: Search TMDB
-    let film = null, platform = 'Check streaming', runtime = '', awardBadge = null;
+    let film = null, platform = 'Check streaming', runtime = '', awardBadge = null, details = null;
     const hasSearchParams = params.genre || params.genres?.length || params.vibe;
 
     if (hasSearchParams && tmdbToken) {
       film = await searchTMDB(params, platforms, tmdbToken);
       if (film) {
-        const details = await getDetails(film.id, params.is_series, tmdbToken);
+        details    = await getDetails(film.id, params.is_series, tmdbToken);
         platform   = details.platform;
         runtime    = details.runtime;
         awardBadge = details.awardBadge;
@@ -297,26 +309,27 @@ export async function POST(req) {
         platform, runtime, rating,
         awardBadge: awardBadge || null,
         meta: `${platform} · ${runtime}`,
-        poster:   details.poster   || film.poster_path   || null,
-        backdrop: details.backdrop || film.backdrop_path || null,
+        poster:   details?.poster   || film.poster_path   || null,
+        backdrop: details?.backdrop || film.backdrop_path || null,
         tmdb_id: film.id,
       });
     }
 
-    // Fallback: freeform Haiku
+    // Fallback: freeform Haiku — strict 2 sentence max
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001', max_tokens: 120,
-        system: `You are Fred, a sharp cinephile. Answer in 1-2 sentences. Be honest and direct.
-- If asked about very recent films (2025/2026) and you're unsure, say so briefly and suggest asking for a specific genre so you can search properly.
-- Never invent film titles or claim to know things you don't.
-- Never ask the user to describe a film to you — that's their job.
-- No filler, no long explanations.
+        model: 'claude-haiku-4-5-20251001', max_tokens: 80,
+        system: `You are Fred, a sharp cinephile.
+RULES — no exceptions:
+- Recommend ONE film. Never two. Never "or if you want".
+- EXACTLY 2 sentences. Stop after the second period.
+- End with the title name naturally in the text.
+- No filler, no "I", no plot summaries.
+- If you don't know a real title that fits, say "Nothing comes to mind — try asking for a specific genre."
 
-FORMAT (if recommending):
-[Pitch ending with title.]
+FORMAT: [2 sentence pitch with title at the end.]
 → TITLE | PLATFORM | RUNTIME`,
         messages: allMessages,
       }),
