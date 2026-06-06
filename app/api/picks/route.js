@@ -16,14 +16,10 @@ const MOOD_GENRE_MAP = {
   family:    [10751, 16],
 };
 
-// When moods combine, use these specific genre combos instead of OR-ing everything
 const MOOD_COMBO_MAP = {
-  'funny+smart': [35, 18],      // comedy-drama
-  'smart+funny': [35, 18],
-  'funny+dark':  [35, 53],      // dark comedy
-  'dark+funny':  [35, 53],
-  'funny+romantic': [35, 10749],
-  'romantic+funny': [35, 10749],
+  'funny+smart': [35, 18], 'smart+funny': [35, 18],
+  'funny+dark':  [35, 53], 'dark+funny':  [35, 53],
+  'funny+romantic': [35, 10749], 'romantic+funny': [35, 10749],
 };
 
 const AWARDS_DB = {
@@ -50,7 +46,6 @@ async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries
     ? 'https://api.themoviedb.org/3/discover/tv'
     : 'https://api.themoviedb.org/3/discover/movie';
 
-  // Check for a specific mood combo override
   const comboKey = moods.slice().sort().join('+');
   const comboGenres = MOOD_COMBO_MAP[comboKey];
   const resolvedGenreIds = comboGenres || genreIds;
@@ -65,18 +60,13 @@ async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries
   });
 
   if (resolvedGenreIds?.length) {
-    // Use AND (,) for combos so film must match all genres, OR (|) for single mood
-    const separator = comboGenres ? ',' : '|';
-    params.set('with_genres', resolvedGenreIds.join(separator));
+    params.set('with_genres', resolvedGenreIds.join(comboGenres ? ',' : '|'));
   }
 
-  // Non-recent: bias toward last 15 years to avoid only getting classics
   if (!recentOnly) {
-    if (isSeries) params.set('first_air_date.gte', '2000-01-01');
-    else          params.set('primary_release_date.gte', '2000-01-01');
+    isSeries ? params.set('first_air_date.gte', '2000-01-01') : params.set('primary_release_date.gte', '2000-01-01');
   } else {
-    if (isSeries) params.set('first_air_date.gte', '2025-01-01');
-    else          params.set('primary_release_date.gte', '2025-01-01');
+    isSeries ? params.set('first_air_date.gte', '2025-01-01') : params.set('primary_release_date.gte', '2025-01-01');
   }
 
   if (providerIds) {
@@ -84,9 +74,7 @@ async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries
     params.set('watch_region', 'US');
   }
 
-  const res  = await fetch(`${endpoint}?${params}`, {
-    headers: { Authorization: `Bearer ${tmdbToken}` },
-  });
+  const res  = await fetch(`${endpoint}?${params}`, { headers: { Authorization: `Bearer ${tmdbToken}` } });
   const data = await res.json();
   const excludeSet = new Set(exclude || []);
   return (data.results || []).filter(r => !excludeSet.has(r.id));
@@ -97,14 +85,17 @@ async function getDetails(id, isSeries, tmdbToken) {
     ? `https://api.themoviedb.org/3/tv/${id}`
     : `https://api.themoviedb.org/3/movie/${id}`;
 
-  const [detailRes, providerRes] = await Promise.all([
+  const [detailRes, providerRes, imagesRes] = await Promise.all([
     fetch(`${base}?language=en-US`, { headers: { Authorization: `Bearer ${tmdbToken}` } }),
     fetch(`${base}/watch/providers`, { headers: { Authorization: `Bearer ${tmdbToken}` } }),
+    fetch(`${base}/images`, { headers: { Authorization: `Bearer ${tmdbToken}` } }),
   ]);
 
   const detail    = await detailRes.json();
   const providers = await providerRes.json();
-  const platform  = providers.results?.US?.flatrate?.[0]?.provider_name || 'Check streaming';
+  const images    = await imagesRes.json();
+
+  const platform = providers.results?.US?.flatrate?.[0]?.provider_name || 'Check streaming';
 
   let runtime = '';
   if (isSeries) {
@@ -115,7 +106,20 @@ async function getDetails(id, isSeries, tmdbToken) {
     runtime = mins ? `${Math.floor(mins / 60)}h ${mins % 60}m` : '';
   }
 
-  return { platform, runtime, rating: detail.vote_average?.toFixed(1) || null };
+  // Pick best backdrop: prefer English ones with high vote average
+  const backdrops = images.backdrops || [];
+  const backdrop = backdrops
+    .filter(b => !b.iso_639_1 || b.iso_639_1 === 'en')
+    .sort((a, b) => b.vote_average - a.vote_average)[0]
+    ?.file_path || detail.backdrop_path || null;
+
+  return {
+    platform,
+    runtime,
+    rating: detail.vote_average?.toFixed(1) || null,
+    backdrop,
+    poster: detail.poster_path || null,
+  };
 }
 
 async function writeFredNote(film, isSeries, apiKey) {
@@ -139,7 +143,6 @@ export async function GET(req) {
   const moods      = (searchParams.get('moods')     || '').split(',').filter(Boolean);
   const excludeRaw = (searchParams.get('exclude')   || '').split(',').filter(Boolean);
   const exclude    = excludeRaw.map(Number).filter(Boolean);
-  // If there are exclusions (i.e. a refresh), randomise the page so we get different results
   const isRefresh  = exclude.length > 0;
   const page       = isRefresh ? Math.floor(Math.random() * 3) + 1 : 1;
 
@@ -148,33 +151,23 @@ export async function GET(req) {
 
   if (!tmdbToken) return NextResponse.json({ error: 'TMDB token missing' }, { status: 500 });
 
-  // Resolve genre IDs from moods
   const genreIds = [...new Set(moods.flatMap(m => MOOD_GENRE_MAP[m] || []))];
 
   try {
-    // ── Fetch 3 slots in parallel ──
-    // Slot 1: Best rated all-time for mood
-    // Slot 2: Best rated all-time for mood (different result)
-    // Slot 3: RECENT (2025/2026) highly rated — always fresh
     const [allTimeResults, recentResults, seriesResults] = await Promise.all([
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: false, moods, page }, tmdbToken),
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: true,  isSeries: false, moods, page: 1 }, tmdbToken),
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: true,  moods, page }, tmdbToken),
     ]);
 
-    // Pick slot 1: top all-time film
-    const film1 = allTimeResults[0] || null;
-    // Pick slot 2: second all-time film (skip film1)
-    const film2 = allTimeResults.find(r => r.id !== film1?.id) || null;
-    // Pick slot 3: best recent film not already picked
+    const film1   = allTimeResults[0] || null;
+    const film2   = allTimeResults.find(r => r.id !== film1?.id) || null;
     const usedIds = new Set([film1?.id, film2?.id].filter(Boolean));
     const film3   = recentResults.find(r => !usedIds.has(r.id)) || null;
-    // Series pick
     const series1 = seriesResults[0] || null;
 
     const slots = [film1, film2, film3, series1].filter(Boolean);
 
-    // Get details + notes in parallel
     const enriched = await Promise.all(slots.map(async (film, i) => {
       const isSeries = i === 3;
       const [details, fredNote] = await Promise.all([
@@ -182,22 +175,23 @@ export async function GET(req) {
         apiKey ? writeFredNote(film, isSeries, apiKey) : Promise.resolve(''),
       ]);
 
-      const isRecent = (film.release_date || film.first_air_date || '').slice(0,4) >= '2025';
+      const isRecent = (film.release_date || film.first_air_date || '').slice(0, 4) >= '2025';
 
       return {
-        id:        film.id,
-        tmdb_id:   film.id,
-        title:     film.title || film.name,
-        poster:    film.poster_path,
-        year:      (film.release_date || film.first_air_date || '').slice(0,4),
-        platform:  details.platform,
-        runtime:   details.runtime,
-        rating:    details.rating,
-        type:      isSeries ? 'series' : 'movie',
-        fred_note: fredNote,
+        id:          film.id,
+        tmdb_id:     film.id,
+        title:       film.title || film.name,
+        poster:      details.poster || film.poster_path,
+        backdrop:    details.backdrop,               // ← 16:9 hero image
+        year:        (film.release_date || film.first_air_date || '').slice(0, 4),
+        platform:    details.platform,
+        runtime:     details.runtime,
+        rating:      details.rating,
+        type:        isSeries ? 'series' : 'movie',
+        fred_note:   fredNote,
         award_badge: awardBadge(film.id),
-        pick_type: i === 2 && isRecent ? 'recent' : i === 0 ? 'safe' : 'stretch',
-        is_recent: isRecent,
+        pick_type:   i === 2 && isRecent ? 'recent' : i === 0 ? 'safe' : 'stretch',
+        is_recent:   isRecent,
       };
     }));
 
