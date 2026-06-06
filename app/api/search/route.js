@@ -81,31 +81,48 @@ export async function GET(req) {
       movieRes.json(), tvRes.json(), personRes.json(),
     ]);
 
-    // If it's a person search, get their top 3 known-for films
+    // Person detection — if top person result is an actor/director, use their credits
     const person = personData.results?.[0];
-    if (person && person.popularity > 5) {
-      const knownFor = (person.known_for || [])
-        .filter(k => k.media_type === 'movie' || k.media_type === 'tv')
-        .slice(0, 3);
+    const movieTopResult = movieData.results?.[0];
 
-      if (knownFor.length) {
-        const enriched = await Promise.all(knownFor.map(async k => {
-          const isSeries = k.media_type === 'tv';
-          const details  = await getDetails(k.id, isSeries, tmdbToken);
+    // Prefer person if: they exist, have decent popularity,
+    // AND the top movie result doesn't closely match the query
+    const queryLower = query.toLowerCase();
+    const movieTitleMatch = movieTopResult
+      ? movieTopResult.title.toLowerCase().includes(queryLower) || queryLower.includes(movieTopResult.title.toLowerCase())
+      : false;
+
+    if (person && person.popularity > 3 && !movieTitleMatch) {
+      // Use movie_credits for full filmography — more reliable than known_for
+      const creditsRes = await fetch(
+        `https://api.themoviedb.org/3/person/${person.id}/movie_credits?language=en-US`,
+        { headers: { Authorization: `Bearer ${tmdbToken}` } }
+      );
+      const creditsData = await creditsRes.json();
+
+      // Top 4 films by vote_average, minimum vote threshold
+      const topFilms = (creditsData.cast || [])
+        .filter(f => f.vote_count > 100 && f.vote_average > 5)
+        .sort((a, b) => b.vote_average - a.vote_average)
+        .slice(0, 4);
+
+      if (topFilms.length) {
+        const enriched = await Promise.all(topFilms.map(async f => {
+          const details = await getDetails(f.id, false, tmdbToken);
           return {
-            id:          k.id,
-            tmdb_id:     k.id,
-            title:       k.title || k.name,
-            type:        isSeries ? 'series' : 'movie',
-            year:        (k.release_date || k.first_air_date || '').slice(0, 4),
-            poster:      details.poster   || k.poster_path   || null,
-            backdrop:    details.backdrop || k.backdrop_path || null,
+            id:          f.id,
+            tmdb_id:     f.id,
+            title:       f.title,
+            type:        'movie',
+            year:        f.release_date?.slice(0, 4) || '',
+            poster:      details.poster   || f.poster_path   || null,
+            backdrop:    details.backdrop || f.backdrop_path || null,
             platform:    details.platform,
             runtime:     details.runtime,
             rating:      details.rating,
             overview:    details.overview,
             genres:      details.genres,
-            award_badge: awardBadge(k.id),
+            award_badge: awardBadge(f.id),
             meta:        `${details.platform} · ${details.runtime}`,
             person_name: person.name,
             person_role: person.known_for_department,
