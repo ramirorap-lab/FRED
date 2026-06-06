@@ -524,7 +524,9 @@ export default function Fred() {
       setPullRefreshing(true);
       setPullDist(0);
       pullStartY.current = null;
-      await fetchPicks(platforms, moods, tasteProfile, watched);
+      // Exclude current picks so refresh always returns different results
+      const currentlyShown = picks.map(p => ({ id: p.tmdb_id || p.id }));
+      await fetchPicks(platforms, moods, tasteProfile, [...watched, ...currentlyShown]);
       setPullRefreshing(false);
     } else {
       setPullDist(0);
