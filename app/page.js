@@ -583,19 +583,34 @@ export default function Fred() {
   // ── Pull-to-refresh handlers ──
   function onTouchStart(e) {
     const el = e.currentTarget;
-    if (el.scrollTop === 0) pullStartY.current = e.touches[0].clientY;
+    // Only activate pull if truly at the top and not already refreshing
+    if (el.scrollTop === 0 && !pullRefreshing) {
+      pullStartY.current = e.touches[0].clientY;
+    }
   }
   function onTouchMove(e) {
     if (pullStartY.current === null) return;
     const dist = e.touches[0].clientY - pullStartY.current;
-    if (dist > 0) setPullDist(Math.min(dist, 80));
+    if (dist <= 0) {
+      // Scrolling up — cancel pull
+      pullStartY.current = null;
+      setPullDist(0);
+      return;
+    }
+    const capped = Math.min(dist, 90);
+    setPullDist(capped);
+    // Haptic at threshold — fire once when crossing 70px
+    if (capped >= 70 && pullDist < 70) {
+      navigator.vibrate?.(12);
+    }
   }
   async function onTouchEnd() {
-    if (pullDist > 55 && !pullRefreshing && !loading) {
+    // Threshold raised to 70px — much harder to trigger accidentally
+    if (pullDist >= 70 && !pullRefreshing && !loading) {
+      navigator.vibrate?.(25);
       setPullRefreshing(true);
       setPullDist(0);
       pullStartY.current = null;
-      // Exclude current picks so refresh always returns different results
       const currentlyShown = picks.map(p => ({ id: p.tmdb_id || p.id }));
       await fetchPicks(platforms, moods, tasteProfile, [...watched, ...currentlyShown]);
       setPullRefreshing(false);
