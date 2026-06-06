@@ -107,10 +107,12 @@ function FredCard({ msg, onSave }) {
           <div className="fred-pick-card">
             <div className={`fred-pick-poster ${bg}`}>
               <div className="fred-pick-ph">{msg.title.charAt(0)}</div>
-              {msg.poster && !posterFailed && (
-                <img src={`${TMDB}${msg.poster}`} alt={msg.title}
+              {(msg.backdrop || msg.poster) && !posterFailed && (
+                <img
+                  src={`https://image.tmdb.org/t/p/${msg.backdrop ? 'w1280' : 'w500'}${msg.backdrop || msg.poster}`}
+                  alt={msg.title}
                   onError={() => setPosterFailed(true)}
-                  style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover' }} />
+                  style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', objectPosition: msg.backdrop ? 'center center' : 'center top' }} />
               )}
               <div className="fred-pick-grad" />
               <div className="fred-pick-title-ov">{msg.title}</div>
@@ -511,6 +513,7 @@ export default function Fred() {
           platform: data.platform || '',
           runtime: data.runtime || '',
           poster: data.poster || null,
+          backdrop: data.backdrop || null,
           tmdb_id: data.tmdb_id || null,
           rating: data.rating ? String(data.rating) : null,
           awardBadge: data.awardBadge || null,
