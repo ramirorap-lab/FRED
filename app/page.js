@@ -733,12 +733,17 @@ export default function Fred() {
                 )}
                 <div className={`pick-block ${flippingId === pick.id ? 'is-flipping' : ''} ${flippedIn === pick.id ? 'is-flipped-in' : ''}`}>
                   <div className="pick-header">
-                    <span className={`pick-label ${pick.is_recent ? 'label-recent' : lbl.cls}`}>
-                      {pick.is_recent
-                        ? `✦ ${pick.year}`
-                        : pick.pick_type === 'wildcard' && pick.director_name
-                          ? `${pick.director_name.split(' ').pop()}'s Pick`
-                          : lbl.label}
+                    <span className={`pick-label ${
+                      pick.pick_type === 'reddit' ? 'label-reddit' :
+                      pick.is_recent ? 'label-recent' : lbl.cls
+                    }`}>
+                      {pick.pick_type === 'reddit'
+                        ? `↑ Reddit${pick.reddit_mention_count > 1 ? ` ×${pick.reddit_mention_count}` : ''}`
+                        : pick.is_recent
+                          ? `✦ ${pick.year}`
+                          : pick.pick_type === 'wildcard' && pick.director_name
+                            ? `${pick.director_name.split(' ').pop()}'s Pick`
+                            : lbl.label}
                     </span>
                     <span className="pick-sep">·</span>
                     <span className={`type-badge ${pick.type === 'series' ? 'type-series' : 'type-film'}`}>
