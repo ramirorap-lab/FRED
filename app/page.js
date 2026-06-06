@@ -286,7 +286,9 @@ export default function Fred() {
   const [authEmail,     setAuthEmail]     = useState('');
   const [authSent,      setAuthSent]      = useState(false);
   const [authLoading,   setAuthLoading]   = useState(false);
-  const chatRef    = useRef(null);
+  const chatRef      = useRef(null);
+  const recognitionRef = useRef(null);
+  const [listening, setListening] = useState(false);
   const pullStartY  = useRef(null);
   const [pullDist,       setPullDist]       = useState(0);
   const [pullRefreshing, setPullRefreshing] = useState(false);
@@ -441,6 +443,28 @@ export default function Fred() {
     } finally {
       setAuthLoading(false);
     }
+  }
+
+  function startVoice() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert('Voice not supported in this browser.'); return; }
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const r = new SR();
+    r.lang = 'en-US';
+    r.interimResults = false;
+    r.maxAlternatives = 1;
+    recognitionRef.current = r;
+    r.onstart  = () => setListening(true);
+    r.onend    = () => setListening(false);
+    r.onerror  = () => setListening(false);
+    r.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      sendChat(transcript);
+    };
+    r.start();
   }
 
   async function sendChat(text) {
@@ -765,6 +789,14 @@ export default function Fred() {
         <div className="chat-bar">
           <input className="ci" value={chatInput} onChange={e=>setChatInput(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&sendChat()} placeholder="Ask Fred something specific…" disabled={chatLoading}/>
+          <button className={`cm ${listening ? 'cm-active' : ''}`} onClick={startVoice} disabled={chatLoading} aria-label="Voice input">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
+              <rect x="9" y="2" width="6" height="12" rx="3"/>
+              <path d="M5 10a7 7 0 0 0 14 0"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+              <line x1="9" y1="22" x2="15" y2="22"/>
+            </svg>
+          </button>
           <button className="cs" onClick={() => sendChat()} disabled={chatLoading}><I.Send /></button>
         </div>
       </div>
