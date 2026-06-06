@@ -110,10 +110,15 @@ async function searchTMDB(params, platforms, tmdbToken) {
 
   const sortBy = sort === 'popular' ? 'popularity.desc' : 'vote_average.desc';
 
+  // Lower thresholds for recent years — 2025/2026 films haven't accumulated votes yet
+  const isRecentYear = year && parseInt(year) >= 2025;
+  const minVotes = isRecentYear ? '50' : (sort === 'popular' ? '200' : '500');
+  const minRating = isRecentYear ? '6.0' : '7.0';
+
   const searchParams = new URLSearchParams({
-    sort_by: sortBy,
-    'vote_count.gte': sort === 'popular' ? '200' : '500',
-    'vote_average.gte': '7.0',
+    sort_by: isRecentYear ? 'popularity.desc' : sortBy,
+    'vote_count.gte': minVotes,
+    'vote_average.gte': minRating,
     language: 'en-US',
     include_adult: 'false',
     page: '1',
@@ -299,7 +304,15 @@ export async function POST(req) {
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001', max_tokens: 120,
-        system: `You are Fred, a sharp cinephile. Answer in 1-2 sentences. Give ONE real recommendation. Never ask for information. No filler.\n\nFORMAT:\n[Pitch ending with title.]\n→ TITLE | PLATFORM | RUNTIME`,
+        system: `You are Fred, a sharp cinephile. Answer in 1-2 sentences. Be honest and direct.
+- If asked about very recent films (2025/2026) and you're unsure, say so briefly and suggest asking for a specific genre so you can search properly.
+- Never invent film titles or claim to know things you don't.
+- Never ask the user to describe a film to you — that's their job.
+- No filler, no long explanations.
+
+FORMAT (if recommending):
+[Pitch ending with title.]
+→ TITLE | PLATFORM | RUNTIME`,
         messages: allMessages,
       }),
     });
