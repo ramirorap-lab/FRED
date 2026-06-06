@@ -42,16 +42,20 @@ function awardBadge(id) {
 }
 
 // Fetch a trending pick from Supabase reddit_picks table
-async function getRedditPick(exclude = []) {
-  const { data, error } = await supabase
-    .from('reddit_picks')
-    .select('*')
-    .order('mention_count', { ascending: false })
-    .limit(20);
-
-  if (error || !data?.length) return null;
-  const excludeSet = new Set(exclude);
-  return data.find(r => !excludeSet.has(r.tmdb_id)) || null;
+async function getRedditPick(exclude = [], supabase) {
+  try {
+    if (!supabase) return null;
+    const { data, error } = await supabase
+      .from('reddit_picks')
+      .select('*')
+      .order('mention_count', { ascending: false })
+      .limit(20);
+    if (error || !data?.length) return null;
+    const excludeSet = new Set(exclude);
+    return data.find(r => !excludeSet.has(r.tmdb_id)) || null;
+  } catch {
+    return null;
+  }
 }
 
 async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries, page = 1, moods = [] }, tmdbToken) {
@@ -152,10 +156,10 @@ async function writeFredNote(film, isSeries, apiKey) {
 }
 
 export async function GET(req) {
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+  // Only init Supabase if service role key is available
+  const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+    : null;
   const { searchParams } = new URL(req.url);
   const platforms  = (searchParams.get('platforms') || '').split(',').filter(Boolean);
   const moods      = (searchParams.get('moods')     || '').split(',').filter(Boolean);
@@ -176,7 +180,7 @@ export async function GET(req) {
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: false, moods, page }, tmdbToken),
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: true,  isSeries: false, moods, page: 1 }, tmdbToken),
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: true,  moods, page }, tmdbToken),
-      getRedditPick(exclude),
+      getRedditPick(exclude, supabase),
     ]);
 
     const film1   = allTimeResults[0] || null;
