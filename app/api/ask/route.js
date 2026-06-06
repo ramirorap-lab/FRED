@@ -300,8 +300,8 @@ export async function POST(req) {
         platform, runtime, rating,
         awardBadge: awardBadge || null,
         meta: `${platform} · ${runtime}`,
-        poster: details.poster || film.poster_path,
-        backdrop: details.backdrop || null,
+        poster: details.poster || film.poster_path || null,
+        backdrop: details.backdrop || film.backdrop_path || null,
         tmdb_id: film.id,
       });
     }
