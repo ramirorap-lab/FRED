@@ -307,6 +307,12 @@ export default function Fred() {
   const [authSent,      setAuthSent]      = useState(false);
   const [authLoading,   setAuthLoading]   = useState(false);
   const chatRef      = useRef(null);
+  const searchRef    = useRef(null);
+  const [searchQuery,   setSearchQuery]   = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchDone,    setSearchDone]    = useState(false);
+  const [personName,    setPersonName]    = useState('');
   const recognitionRef = useRef(null);
   const [listening, setListening] = useState(false);
   const pullStartY  = useRef(null);
@@ -462,6 +468,26 @@ export default function Fred() {
       console.error('Auth error:', e);
     } finally {
       setAuthLoading(false);
+    }
+  }
+
+  async function runSearch(q) {
+    const query = (q || searchQuery).trim();
+    if (!query) return;
+    setSearchLoading(true);
+    setSearchDone(false);
+    setSearchResults([]);
+    setPersonName('');
+    try {
+      const res  = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      setSearchResults(data.results || []);
+      setPersonName(data.person_name || '');
+      setSearchDone(true);
+    } catch {
+      setSearchDone(true);
+    } finally {
+      setSearchLoading(false);
     }
   }
 
@@ -822,6 +848,127 @@ export default function Fred() {
         </div>
       </div>
 
+      {/* SEARCH */}
+      <div className={`screen ${screen==='search'?'active':''}`} ref={searchRef}>
+        <div className="topbar">
+          <div className="topbar-logo" onClick={() => go('taste')}>
+            Fred{user && <span className="fred-online-dot"/>}
+          </div>
+          <div className="topbar-right">Search</div>
+        </div>
+
+        <div className="search-bar-wrap">
+          <div className="search-input-row">
+            <input
+              className="search-input"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && runSearch()}
+              placeholder="Title, actor, director…"
+              autoComplete="off"
+            />
+            {searchQuery ? (
+              <button className="search-clear" onClick={() => { setSearchQuery(''); setSearchResults([]); setSearchDone(false); }}>
+                <I.X />
+              </button>
+            ) : (
+              <button className="search-go" onClick={() => runSearch()}>
+                <I.Search />
+              </button>
+            )}
+          </div>
+          <div className="search-chips">
+            {['Kubrick','Cate Blanchett','Parasite','Wong Kar-wai','The Godfather'].map(s => (
+              <div key={s} className="pc" onClick={() => { setSearchQuery(s); runSearch(s); }}>{s}</div>
+            ))}
+          </div>
+        </div>
+
+        <div className="search-results">
+          {searchLoading && (
+            <div className="loading">
+              <div className="spinner"/>
+              <div className="load-txt">Searching…</div>
+            </div>
+          )}
+
+          {!searchLoading && searchDone && searchResults.length === 0 && (
+            <div className="loading">
+              <div className="load-txt">Nothing found — try a different spelling.</div>
+            </div>
+          )}
+
+          {!searchLoading && personName && (
+            <div className="search-person-label">Best of {personName}</div>
+          )}
+
+          {!searchLoading && searchResults.map(result => {
+            const bg = bgClass(result.title);
+            const trailerUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(result.title + ' official trailer')}`;
+            return (
+              <div key={result.id} className="search-result-item">
+                <div className="pick-header">
+                  {result.award_badge && (
+                    <span className="pick-label" style={{color:'#c9a84c',background:'rgba(201,168,76,.1)',border:'.5px solid rgba(201,168,76,.25)'}}>
+                      {result.award_badge}
+                    </span>
+                  )}
+                  {!result.award_badge && (
+                    <span className={`pick-label ${result.type === 'series' ? 'type-series' : 'label-safe'}`}>
+                      {result.type === 'series' ? 'Series' : 'Film'}
+                    </span>
+                  )}
+                  <span className="pick-sep">·</span>
+                  <span className="plat-name">{result.platform}</span>
+                  <span className="pick-sep">·</span>
+                  <span className="pick-meta-line">{result.year}{result.runtime ? ` · ${result.runtime}` : ''}</span>
+                </div>
+                <div className="card">
+                  <div className={`poster-wrap ${bg}`}>
+                    <Poster
+                      poster={result.backdrop || result.poster}
+                      title={result.title}
+                      bg={bg}
+                      useBackdrop={!!result.backdrop}
+                    />
+                    <div className="poster-grad"/>
+                    <div className="poster-title-ov">{result.title}</div>
+                    {result.rating && (
+                      <div className="poster-score">
+                        <div className="score-n">{result.rating}</div>
+                        <div className="score-l">TMDB</div>
+                      </div>
+                    )}
+                    <a href={trailerUrl} target="_blank" rel="noopener noreferrer" className="trailer-btn">
+                      <I.Play /> Trailer
+                    </a>
+                  </div>
+                  {result.overview ? (
+                    <div className="card-body">
+                      <div className="card-note">"{result.overview.length > 160 ? result.overview.slice(0,157)+'…' : result.overview}"</div>
+                    </div>
+                  ) : null}
+                  <div className="card-actions">
+                    <button className={`ca sv ${stack.find(s => s.id === result.id) ? 'ca-saved' : ''}`}
+                      onClick={() => saveToStack(result)}>
+                      <I.Bookmark /> {stack.find(s => s.id === result.id) ? 'Saved' : 'Save'}
+                    </button>
+                    <button className={`ca ${isWatched(result) ? 'ca-seen-active' : ''}`}
+                      onClick={() => markWatched(result)}>
+                      <I.Eye /> {isWatched(result) ? 'Seen ✓' : 'Seen it'}
+                    </button>
+                    <a className="ca" href={`https://www.google.com/search?q=${encodeURIComponent(result.title + ' streaming')}`}
+                      target="_blank" rel="noopener noreferrer">
+                      <I.External /> Open
+                    </a>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* WATCHLIST */}
       <div className={`screen ${screen==='watchlist'?'active':''}`}>
         <div className="topbar">
@@ -853,7 +1000,7 @@ export default function Fred() {
 
       {/* NAV */}
       <nav className="nav">
-        <button className={`nv ${screen==='taste'?'active':''}`}     onClick={() => go('taste')}>    <I.Search />   Search   </button>
+        <button className={`nv ${screen==='search'?'active':''}`}   onClick={() => go('search')}>   <I.Search />   Search   </button>
         <button className={`nv ${screen==='tonight'?'active':''}`}   onClick={() => go('tonight')}>  <I.Movie />    Picks    </button>
         <button className={`nv ${screen==='ask'?'active':''}`}       onClick={() => go('ask')}>      <I.Chat />     Ask Fred </button>
         <button className={`nv ${screen==='watchlist'?'active':''}`} onClick={() => go('watchlist')}><I.Bookmark /> Watchlist</button>
