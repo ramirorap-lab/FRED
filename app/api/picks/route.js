@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
 const PROVIDER_IDS = {
   'Netflix': '8', 'Prime Video': '9', 'Hulu': '15',
   'Max': '1899', 'Apple TV+': '350', 'Disney+': '337', 'Peacock': '386',
@@ -157,6 +152,10 @@ async function writeFredNote(film, isSeries, apiKey) {
 }
 
 export async function GET(req) {
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
   const { searchParams } = new URL(req.url);
   const platforms  = (searchParams.get('platforms') || '').split(',').filter(Boolean);
   const moods      = (searchParams.get('moods')     || '').split(',').filter(Boolean);
