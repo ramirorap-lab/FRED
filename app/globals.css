@@ -6,17 +6,14 @@
   --muted: #A3A3A3;
   --dim: #555555;
 }
-
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
 html, body {
   background: var(--bg);
   color: #fff;
-  font-family: var(--font-body), 'Barlow', sans-serif;
+  font-family: 'Inter', var(--font-body), sans-serif;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
 }
-
 .app {
   background: var(--bg);
   min-height: 100dvh;
@@ -24,11 +21,9 @@ html, body {
   margin: 0 auto;
   position: relative;
 }
-
 .screen { display: none; padding-bottom: 100px; overflow-y: auto; min-height: 100dvh; }
 .screen.active { display: block; }
 .screen::-webkit-scrollbar { width: 0; }
-
 /* ── NAV ── */
 .nav {
   position: fixed; bottom: 0;
@@ -44,16 +39,14 @@ html, body {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   cursor: pointer; padding: 4px 8px;
   background: none; border: none; color: var(--dim);
-  font-family: var(--font-body), sans-serif;
+  font-family: 'Inter', var(--font-body), sans-serif;
   font-size: 8px; letter-spacing: .08em; text-transform: uppercase;
   transition: color .2s; white-space: nowrap;
 }
 .nv.active { color: var(--red); }
 .nv svg { width: 19px; height: 19px; stroke-width: 1.5; }
-
 /* ── TASTE SCREEN ── */
 .taste-wrap { padding: 40px 24px 20px; }
-
 .taste-logo {
   font-family: var(--font-display), sans-serif;
   font-weight: 900; font-size: 54px;
@@ -72,23 +65,19 @@ html, body {
   line-height: 1.35; margin-bottom: 32px;
 }
 .taste-question strong { color: #fff; font-style: normal; font-weight: 700; }
-
 .t-divider { height: .5px; background: #161618; margin-bottom: 24px; }
-
 .sec-label {
   font-size: 9px; letter-spacing: .2em;
   text-transform: uppercase; color: var(--dim); margin-bottom: 12px;
 }
-
 .platform-row { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 28px; }
 .plat-pill {
   padding: 6px 14px; border: .5px solid #222; border-radius: 20px;
   font-size: 11px; color: #555; cursor: pointer; transition: all .15s;
   letter-spacing: .03em; background: none;
-  font-family: var(--font-body), sans-serif; user-select: none;
+  font-family: 'Inter', var(--font-body), sans-serif; user-select: none;
 }
 .plat-pill.on { border-color: var(--red); color: #fff; background: rgba(229,9,20,.08); }
-
 .mood-list { margin-bottom: 28px; }
 .mood-item {
   display: flex; align-items: center; justify-content: space-between;
@@ -115,17 +104,28 @@ html, body {
 }
 .mood-check svg { display: none; }
 .mood-item.on .mood-check { background: var(--red); border-color: var(--red); }
-
+/* ── FRED'S PICKS CTA ── */
 .taste-cta {
-  width: 100%; padding: 15px; background: var(--red);
-  color: #fff; border: none; border-radius: 8px;
-  font-family: 'Playfair Display', var(--font-display), serif;
-  font-size: 22px; font-weight: 900; font-style: italic;
-  letter-spacing: -.01em;
-  cursor: pointer; transition: opacity .2s; margin-bottom: 32px;
+  width: 100%; padding: 15px 0;
+  background: rgba(120, 15, 15, 0.15);
+  border: 1px solid rgba(180, 40, 40, 0.55);
+  border-radius: 4px;
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-style: italic;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: .03em;
+  color: #d4d0cb;
+  cursor: pointer;
+  transition: background .2s ease, border-color .2s ease, color .2s ease;
+  margin-bottom: 32px;
 }
-.taste-cta:hover { opacity: .9; }
-
+.taste-cta:hover,
+.taste-cta:active {
+  background: rgba(140, 20, 20, 0.25);
+  border-color: rgba(180, 40, 40, 0.75);
+  color: #e0dcd7;
+}
 /* ── TOPBAR ── */
 .topbar {
   display: flex; align-items: center;
@@ -145,7 +145,6 @@ html, body {
   font-size: 10px; color: #666;
   letter-spacing: .08em; text-transform: uppercase;
 }
-
 /* ── PICK HEADER ── */
 .pick-header {
   display: flex; align-items: center;
@@ -153,7 +152,8 @@ html, body {
   flex-wrap: nowrap; overflow: hidden;
 }
 .pick-label {
-  font-size: 9px; font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  font-size: 9px; font-weight: 600;
   letter-spacing: .14em; text-transform: uppercase;
   padding: 4px 9px; border-radius: 2px;
   white-space: nowrap; flex-shrink: 0;
@@ -161,18 +161,20 @@ html, body {
 .label-safe     { color: #00c27a; background: rgba(0,194,122,.1); }
 .label-stretch  { color: #F5C518; background: rgba(245,197,24,.1); }
 .label-director { color: var(--red); background: rgba(229,9,20,.1); }
+.label-recent   { color: #7EB8A4; background: rgba(126,184,164,.08); border: .5px solid rgba(126,184,164,.25); }
 .pick-sep { color: #444; font-size: 11px; flex-shrink: 0; }
 .plat-name {
-  font-size: 10px; font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px; font-weight: 600;
   letter-spacing: .12em; text-transform: uppercase;
   color: #999; flex-shrink: 0;
 }
 .pick-meta-line {
-  font-size: 10px; font-weight: 500; color: #666;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px; font-weight: 400; color: #666;
   letter-spacing: .06em; text-transform: uppercase;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-
 /* ── CARD ── */
 .card {
   background: var(--card); border-radius: 5px;
@@ -180,7 +182,6 @@ html, body {
   transition: transform .18s;
 }
 .card:hover { transform: translateY(-2px); }
-
 .poster-wrap { width: 100%; height: 224px; position: relative; overflow: hidden; }
 .poster-img {
   width: 100%; height: 100%; object-fit: cover;
@@ -208,10 +209,10 @@ html, body {
 }
 .poster-tl { position: absolute; top: 11px; left: 11px; display: flex; gap: 5px; }
 .bdg {
+  font-family: 'Inter', sans-serif;
   font-size: 9px; font-weight: 600;
   letter-spacing: .09em; text-transform: uppercase;
   padding: 4px 8px; border-radius: 2px;
-  font-family: var(--font-body), sans-serif;
 }
 .bdg-lb  { background: rgba(0,194,122,.14); color: #00c27a; }
 .bdg-top { background: rgba(245,197,24,.14); color: #F5C518; }
@@ -225,11 +226,10 @@ html, body {
   font-weight: 700; font-size: 17px; color: #F5C518; line-height: 1;
 }
 .score-l {
+  font-family: 'Inter', sans-serif;
   font-size: 8px; color: #888; letter-spacing: .08em;
   text-transform: uppercase; margin-top: 1px;
-  font-family: var(--font-body), sans-serif;
 }
-
 /* ── TRAILER BUTTON ── */
 .trailer-btn {
   position: absolute; bottom: 12px; right: 12px;
@@ -238,15 +238,17 @@ html, body {
   letter-spacing: .08em; text-transform: uppercase;
   display: flex; align-items: center; gap: 5px;
   text-decoration: none; transition: color .15s, border-color .15s;
+  font-family: 'Inter', sans-serif;
 }
 .trailer-btn:hover { color: #fff; border-color: rgba(255,255,255,.3); }
 .trailer-btn svg { width: 12px; height: 12px; }
-
 .card-body { padding: 13px 14px 0; }
 .card-note {
-  font-family: var(--font-display), sans-serif;
-  font-size: 13px; color: var(--muted);
-  line-height: 1.6; font-style: italic; padding-bottom: 13px;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px; font-weight: 300;
+  font-style: italic; line-height: 1.65;
+  color: #c8c4be; letter-spacing: .015em;
+  padding-bottom: 13px;
 }
 .director-note {
   font-family: var(--font-display), sans-serif;
@@ -254,12 +256,11 @@ html, body {
   line-height: 1.55; border-left: 1.5px solid var(--red);
   padding: 2px 0 2px 10px; margin-bottom: 10px;
 }
-
 .card-actions { display: flex; border-top: 0.5px solid var(--border); }
 .ca {
   flex: 1; padding: 10px 4px; font-size: 10px; color: #555;
   text-align: center; cursor: pointer; background: none; border: none;
-  font-family: var(--font-body), sans-serif;
+  font-family: 'Inter', sans-serif;
   letter-spacing: .07em; text-transform: uppercase;
   transition: color .15s;
   display: flex; align-items: center; justify-content: center; gap: 5px;
@@ -268,10 +269,8 @@ html, body {
 .ca.sv:hover { color: var(--red); }
 .ca + .ca { border-left: 0.5px solid var(--border); }
 .ca svg { width: 13px; height: 13px; stroke-width: 1.8; }
-
 /* ── PICKS WRAP ── */
 .picks-wrap { padding: 0 18px; display: flex; flex-direction: column; }
-
 /* ── LOADING / EMPTY ── */
 .loading {
   display: flex; flex-direction: column;
@@ -287,6 +286,7 @@ html, body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .load-txt {
+  font-family: 'Inter', sans-serif;
   font-size: 11px; color: var(--dim);
   letter-spacing: .12em; text-transform: uppercase; text-align: center;
 }
@@ -294,7 +294,6 @@ html, body {
   font-size: 13px; color: var(--red);
   text-align: center; padding: 40px 22px; line-height: 1.7;
 }
-
 /* ── WATCHLIST ── */
 .st-list { padding: 14px 22px; display: flex; flex-direction: column; gap: 10px; }
 .si {
@@ -311,20 +310,28 @@ html, body {
 }
 .si-img { width: 42px; height: 58px; border-radius: 3px; object-fit: cover; flex-shrink: 0; }
 .si-info { flex: 1; }
-.si-type { font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-bottom: 3px; }
+.si-type {
+  font-family: 'Inter', sans-serif;
+  font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-bottom: 3px;
+}
 .si-title {
   font-family: var(--font-display), sans-serif;
   font-weight: 700; font-size: 15px;
   letter-spacing: .06em; text-transform: uppercase; margin-bottom: 2px;
 }
-.si-meta { font-size: 11px; color: var(--dim); }
+.si-meta {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px; color: var(--dim);
+}
 .si-rm { background: none; border: none; color: #333; cursor: pointer; padding: 4px; transition: color .15s; }
 .si-rm:hover { color: var(--red); }
 .si-rm svg { width: 16px; height: 16px; stroke-width: 1.8; }
 .empty { text-align: center; padding: 60px 22px; }
 .empty-icon { font-size: 32px; opacity: .12; margin-bottom: 12px; }
-.empty-text { font-size: 13px; color: #444; line-height: 1.6; }
-
+.empty-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px; color: #444; line-height: 1.6;
+}
 /* ── INTRO ── */
 .intro-screen {
   position: fixed; inset: 0; background: #0E0E0F;
@@ -340,23 +347,11 @@ html, body {
   transition: opacity .8s ease, transform .8s ease;
 }
 .intro-tagline {
+  font-family: 'Inter', sans-serif;
   font-size: 11px; color: var(--dim);
   letter-spacing: .28em; text-transform: uppercase;
   transition: opacity .7s ease .3s;
 }
-
-/* ── FRED PICK CARD (Ask Fred) ── */
-.fred-pick-card { border-radius: 5px; overflow: hidden; border: .5px solid var(--border); background: #111113; margin-top: 4px; }
-.fred-pick-poster { width: 100%; height: 180px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-.fred-pick-ph { font-family: var(--font-display), sans-serif; font-weight: 900; font-size: 100px; color: rgba(255,255,255,.04); position: absolute; }
-.fred-pick-grad { position: absolute; bottom: 0; left: 0; right: 0; height: 90px; background: linear-gradient(transparent, #111113); pointer-events: none; }
-.fred-pick-title-ov { position: absolute; bottom: 10px; left: 12px; right: 12px; font-family: var(--font-display), sans-serif; font-weight: 800; font-size: 20px; letter-spacing: .06em; text-transform: uppercase; line-height: 1.05; text-shadow: 0 2px 10px rgba(0,0,0,.9); }
-.fred-pick-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-top: .5px solid var(--border); }
-.fred-pick-meta { font-size: 11px; color: var(--dim); letter-spacing: .05em; text-transform: uppercase; }
-.fred-save-btn { display: flex; align-items: center; gap: 5px; background: none; border: .5px solid var(--border); border-radius: 3px; padding: 6px 10px; color: var(--muted); font-family: var(--font-body), sans-serif; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: all .15s; }
-.fred-save-btn:hover { color: var(--red); border-color: var(--red); }
-.fred-save-btn svg { width: 12px; height: 12px; stroke-width: 1.8; }
-
 /* ── POSTER BG COLORS ── */
 .bg-a{background:#0f0a1a}.bg-b{background:#1a0a00}.bg-c{background:#0a1a10}
 .bg-d{background:#1a1000}.bg-e{background:#0a0f1a}.bg-f{background:#071a07}
@@ -365,39 +360,36 @@ html, body {
 .bg-n{background:#100f1a}.bg-o{background:#1a1000}.bg-p{background:#1a0f2e}
 .bg-r{background:#12120a}.bg-s{background:#0a0f1a}.bg-t{background:#1a1510}
 .bg-w{background:#0a1a1a}.bg-z{background:#1a0808}
-
 /* ── TYPE BADGES ── */
 .type-badge {
-  font-size: 9px; font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  font-size: 9px; font-weight: 600;
   letter-spacing: .12em; text-transform: uppercase;
   padding: 3px 8px; border-radius: 2px;
   flex-shrink: 0; white-space: nowrap;
 }
 .type-film   { color: #888; background: rgba(255,255,255,.06); }
 .type-series { color: #7eb8f7; background: rgba(126,184,247,.1); }
-
 /* ── LETTERBOXD ── */
 .lb-upload {
-  margin-bottom: 24px;
-  padding: 16px;
-  border: .5px solid #1e1e20;
-  border-radius: 4px;
-  background: #111113;
+  margin-bottom: 24px; padding: 16px;
+  border: .5px solid #1e1e20; border-radius: 4px; background: #111113;
 }
 .lb-label {
+  font-family: 'Inter', sans-serif;
   font-size: 11px; font-weight: 600;
   letter-spacing: .1em; text-transform: uppercase;
   color: #888; margin-bottom: 6px;
 }
 .lb-sub {
-  font-size: 11px; color: #444;
-  line-height: 1.5; margin-bottom: 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px; color: #444; line-height: 1.5; margin-bottom: 12px;
 }
 .lb-btn {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 8px 14px; background: #1a1a1c;
   border: .5px solid #333; border-radius: 3px;
-  color: #666; font-family: var(--font-body), sans-serif;
+  color: #666; font-family: 'Inter', sans-serif;
   font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
   cursor: pointer; transition: all .15s;
   -webkit-appearance: none; appearance: none;
@@ -405,35 +397,29 @@ html, body {
 .lb-btn:hover { border-color: #00c27a; color: #00c27a; }
 .lb-btn:disabled { opacity: .5; cursor: not-allowed; }
 .lb-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
-.lb-error { font-size: 11px; color: var(--red); margin-top: 8px; }
+.lb-error { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--red); margin-top: 8px; }
 .lb-done {
   display: flex; align-items: center; gap: 8px;
   padding: 12px 0; margin-bottom: 20px;
+  font-family: 'Inter', sans-serif;
   font-size: 11px; color: #00c27a;
   letter-spacing: .06em; text-transform: uppercase;
 }
 .lb-done svg { width: 14px; height: 14px; }
-
 /* ── SEEN IT ── */
-.ca-seen-active {
-  color: #00c27a !important;
-}
-.ca-seen-active svg {
-  stroke: #00c27a;
-}
-
+.ca-seen-active { color: #00c27a !important; }
+.ca-seen-active svg { stroke: #00c27a; }
+/* ── SAVED STATE ── */
+.ca-saved { color: var(--red) !important; }
+.ca-saved svg { stroke: var(--red); }
 /* ── CARD FLIP ANIMATION ── */
-.pick-block {
-  perspective: 1000px;
-}
+.pick-block { position: relative; perspective: 1000px; }
 .pick-block .card {
   transform-style: preserve-3d;
   transition: transform .32s cubic-bezier(.4,0,.2,1);
   backface-visibility: hidden;
 }
-.pick-block.is-flipping .card {
-  transform: rotateY(90deg);
-}
+.pick-block.is-flipping .card { transform: rotateY(90deg); }
 .pick-block.is-flipped-in .card {
   animation: flipIn .38s cubic-bezier(.4,0,.2,1) forwards;
 }
@@ -441,220 +427,120 @@ html, body {
   from { transform: rotateY(-90deg); }
   to   { transform: rotateY(0deg); }
 }
-
-/* ── ASK FRED GREETING ── */
-.fred-greeting {
-  border-color: #1e1e20;
-  background: #0f0f11;
+/* ── CARD REPLACING OVERLAY ── */
+.card-replacing {
+  position: absolute; inset: 0;
+  background: rgba(14,14,15,.92);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  z-index: 10; border-radius: 5px; animation: fadeIn .2s ease;
 }
-.fred-greeting .fred-text {
-  font-style: normal;
-  font-size: 15px;
-  color: #ccc;
-  line-height: 1.7;
-  font-family: var(--font-body), sans-serif;
+.card-replacing span {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px; color: var(--dim);
+  letter-spacing: .1em; text-transform: uppercase;
 }
-
 /* ── ASK FRED CHAT ── */
 .chat-area { padding: 0 18px 20px; display: flex; flex-direction: column; gap: 14px; }
-
-/* Fred row — avatar + bubble */
-.fred-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
+.fred-row { display: flex; align-items: flex-start; gap: 10px; }
 .fred-avatar {
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  background: #fff;
-  color: #000;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: #fff; color: #000;
   font-family: var(--font-display), sans-serif;
-  font-weight: 900;
-  font-size: 14px;
+  font-weight: 900; font-size: 14px;
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  margin-top: 2px;
-  letter-spacing: -.02em;
+  flex-shrink: 0; margin-top: 2px; letter-spacing: -.02em;
 }
-
-/* Fred bubble — red outline */
 .fred-bubble {
-  flex: 1;
-  border: .5px solid var(--red);
+  flex: 1; border: .5px solid var(--red);
   border-radius: 2px 12px 12px 12px;
-  padding: 14px 16px;
-  background: #0c0c0d;
+  padding: 14px 16px; background: #0c0c0d;
   animation: fadeUp .3s ease;
 }
-
-/* ── Fred chat text — legible Playfair ── */
+/* ── FRED NOTE TEXT ── */
 .fred-text {
-  font-family: 'Playfair Display', Georgia, serif;
-  font-size: 17px;              /* up from ~15px */
-  font-weight: 500;             /* medium weight, not thin */
-  font-style: italic;
-  line-height: 1.65;
-  color: #F0EDE8;               /* warm off-white, easier on eyes than pure #fff */
-  letter-spacing: 0.01em;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px; font-weight: 300; font-style: italic;
+  line-height: 1.65; color: #c8c4be; letter-spacing: .015em;
   margin-bottom: 14px;
 }
-
-/* Greeting (non-italic, slightly different tone) */
 .fred-bubble.fred-greeting .fred-text {
-  font-style: normal;
-  font-weight: 400;
-  font-size: 16px;
-  color: #D8D4CE;
+  font-style: normal; font-weight: 400;
+  font-size: 15px; color: #b8b4ae;
 }
-
-/* User bubble — keep clean sans */
-.user-bubble {
-  font-size: 15px;
-  font-weight: 400;
-  line-height: 1.5;
-  color: #EDEAE5;
-}
-
-/* Card meta line */
-.fred-pick-meta {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: .07em;
-  color: #9A9590;               /* slightly warmer than cold gray */
-}
-
-.fred-greeting {
-  border-color: var(--red);
-}
-.fred-greeting .fred-text {
-  font-style: normal;
-  font-family: var(--font-body), sans-serif;
-  font-size: 14px;
-  color: #ccc;
-  line-height: 1.7;
-}
-
-/* User row — right aligned */
-.user-row {
-  display: flex;
-  justify-content: flex-end;
-}
+.fred-greeting { border-color: var(--red); background: #0c0c0d; }
+/* ── USER BUBBLE ── */
+.user-row { display: flex; justify-content: flex-end; }
 .user-bubble {
   max-width: 80%;
-  border: .5px solid #333;
-  border-radius: 12px 2px 12px 12px;
+  border: .5px solid #333; border-radius: 12px 2px 12px 12px;
   padding: 12px 16px;
-  font-size: 14px;
-  color: #fff;
-  background: #141416;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px; font-weight: 400;
+  color: #fff; background: #141416;
   line-height: 1.55;
-  font-family: var(--font-body), sans-serif;
 }
-
-/* Fred pick card inside bubble */
-.fred-pick-card {
-  border-radius: 5px; overflow: hidden;
-  border: .5px solid #222;
-  background: #111113; margin-top: 12px;
+/* ── FRED PICK CARD (Ask Fred) ── */
+.fred-pick-card { border-radius: 5px; overflow: hidden; border: .5px solid #222; background: #111113; margin-top: 12px; }
+.fred-pick-poster { width: 100%; height: 180px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.fred-pick-ph { font-family: var(--font-display), sans-serif; font-weight: 900; font-size: 100px; color: rgba(255,255,255,.04); position: absolute; }
+.fred-pick-grad { position: absolute; bottom: 0; left: 0; right: 0; height: 90px; background: linear-gradient(transparent, #111113); pointer-events: none; }
+.fred-pick-title-ov { position: absolute; bottom: 10px; left: 12px; right: 12px; font-family: var(--font-display), sans-serif; font-weight: 800; font-size: 20px; letter-spacing: -.01em; line-height: 1.05; text-shadow: 0 2px 10px rgba(0,0,0,.9); }
+.fred-pick-footer { display: flex; flex-direction: column; align-items: flex-start; padding: 10px 12px; border-top: .5px solid #1e1e20; gap: 6px; }
+.fred-pick-footer-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.fred-pick-meta {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px; font-weight: 400;
+  color: #666; letter-spacing: .06em; text-transform: uppercase;
 }
-.fred-pick-poster {
-  width: 100%; height: 180px;
-  position: relative; overflow: hidden;
-  display: flex; align-items: center; justify-content: center;
-}
-.fred-pick-ph {
-  font-family: var(--font-display), sans-serif;
-  font-weight: 900; font-size: 100px;
-  color: rgba(255,255,255,.04); position: absolute;
-}
-.fred-pick-grad {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  height: 90px; background: linear-gradient(transparent, #111113);
-  pointer-events: none;
-}
-.fred-pick-title-ov {
-  position: absolute; bottom: 10px; left: 12px; right: 12px;
-  font-family: var(--font-display), sans-serif;
-  font-weight: 800; font-size: 20px;
-  letter-spacing: -.01em; line-height: 1.05;
-  text-shadow: 0 2px 10px rgba(0,0,0,.9);
-}
-.fred-pick-footer {
-  display: flex; align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-top: .5px solid #1e1e20;
-}
-.fred-pick-meta { font-size: 11px; color: var(--dim); letter-spacing: .05em; text-transform: uppercase; }
 .fred-save-btn {
   display: flex; align-items: center; gap: 5px;
   background: none; border: .5px solid #2a2a2a; border-radius: 3px;
   padding: 6px 10px; color: var(--muted);
-  font-family: var(--font-body), sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
   cursor: pointer; transition: all .15s;
 }
 .fred-save-btn:hover { color: var(--red); border-color: var(--red); }
 .fred-save-btn svg { width: 12px; height: 12px; stroke-width: 1.8; }
-
-/* Prompt chips */
+/* ── AWARD BADGE ── */
+.fred-award-badge {
+  font-family: 'Inter', sans-serif;
+  display: inline-block; font-size: 9px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: #c9a84c; background: rgba(201,168,76,.1);
+  border: 1px solid rgba(201,168,76,.25);
+  border-radius: 3px; padding: 3px 7px;
+}
+/* ── PROMPT CHIPS ── */
 .prompt-chips { display: flex; flex-wrap: wrap; gap: 7px; padding: 14px 18px 18px; }
 .pc {
+  font-family: 'Inter', sans-serif;
   font-size: 12px; padding: 8px 13px; border-radius: 20px;
   border: .5px solid #222; background: #111113;
-  color: #666; cursor: pointer;
-  font-family: var(--font-body), sans-serif;
-  transition: all .15s; line-height: 1.3;
+  color: #666; cursor: pointer; transition: all .15s; line-height: 1.3;
 }
 .pc:hover { border-color: var(--red); color: #fff; }
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* ── TASTE BADGE ── */
+.taste-badge {
+  font-family: 'Inter', sans-serif;
+  font-size: 9px; color: #00c27a;
+  letter-spacing: .08em; margin-left: 8px;
 }
-
-/* ── CARD REPLACING OVERLAY ── */
-.card-replacing {
-  position: absolute;
-  inset: 0;
-  background: rgba(14,14,15,.92);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  z-index: 10;
-  border-radius: 5px;
-  animation: fadeIn .2s ease;
-}
-.card-replacing span {
-  font-size: 11px;
-  color: var(--dim);
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  font-family: var(--font-body), sans-serif;
-}
-
-/* pick-block needs position relative for overlay */
-.pick-block { position: relative; perspective: 1000px; }
-
 /* ── CHAT BAR ── */
 .chat-bar {
   position: fixed; bottom: 66px;
   left: 50%; transform: translateX(-50%);
   width: 100%; max-width: 430px;
-  padding: 10px 18px;
-  background: #0C0C0D;
+  padding: 10px 18px; background: #0C0C0D;
   border-top: .5px solid #1e1e20;
-  display: flex; gap: 9px; align-items: center;
-  z-index: 99;
+  display: flex; gap: 9px; align-items: center; z-index: 99;
 }
 .ci {
   flex: 1; background: #141416;
   border: .5px solid #222; border-radius: 20px;
   padding: 10px 16px; color: #fff;
-  font-family: var(--font-body), sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 14px; outline: none;
   -webkit-appearance: none; appearance: none;
 }
@@ -668,7 +554,6 @@ html, body {
 }
 .cs:hover { opacity: .85; }
 .cs svg { width: 14px; height: 14px; stroke: #fff; stroke-width: 2.2; }
-
 /* ── AUTH MODAL ── */
 .auth-overlay {
   position: fixed; inset: 0; z-index: 999;
@@ -677,106 +562,54 @@ html, body {
   animation: fadeIn .25s ease;
 }
 .auth-modal {
-  width: 100%; max-width: 430px;
-  margin: 0 auto;
-  background: #0f0f11;
-  border-top: .5px solid #2a2a2d;
-  border-radius: 16px 16px 0 0;
-  padding: 32px 28px 48px;
-  position: relative;
-  animation: slideUp .35s cubic-bezier(.16,1,.3,1);
+  width: 100%; max-width: 430px; margin: 0 auto;
+  background: #0f0f11; border-top: .5px solid #2a2a2d;
+  border-radius: 16px 16px 0 0; padding: 32px 28px 48px;
+  position: relative; animation: slideUp .35s cubic-bezier(.16,1,.3,1);
 }
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
-}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 .auth-close {
   position: absolute; top: 16px; right: 20px;
   background: none; border: none; color: #444;
-  font-size: 16px; cursor: pointer;
-  transition: color .15s;
+  font-size: 16px; cursor: pointer; transition: color .15s;
 }
 .auth-close:hover { color: #fff; }
-.auth-logo {
-  font-family: var(--font-display), sans-serif;
-  font-weight: 900; font-size: 42px;
-  color: #fff; letter-spacing: -.02em;
-  margin-bottom: 12px;
-}
-.auth-title {
-  font-family: var(--font-display), sans-serif;
-  font-weight: 700; font-size: 22px;
-  color: #fff; letter-spacing: -.01em;
-  margin-bottom: 8px;
-}
-.auth-sub {
-  font-size: 13px; color: #666;
-  line-height: 1.6; margin-bottom: 24px;
-}
+.auth-logo { font-family: var(--font-display), sans-serif; font-weight: 900; font-size: 42px; color: #fff; letter-spacing: -.02em; margin-bottom: 12px; }
+.auth-title { font-family: var(--font-display), sans-serif; font-weight: 700; font-size: 22px; color: #fff; letter-spacing: -.01em; margin-bottom: 8px; }
+.auth-sub { font-family: 'Inter', sans-serif; font-size: 13px; color: #666; line-height: 1.6; margin-bottom: 24px; }
 .auth-sub strong { color: #999; }
 .auth-input {
   width: 100%; padding: 13px 16px;
-  background: #1a1a1c; border: .5px solid #333;
-  border-radius: 8px; color: #fff;
-  font-family: var(--font-body), sans-serif;
-  font-size: 15px; outline: none;
-  margin-bottom: 12px;
+  background: #1a1a1c; border: .5px solid #333; border-radius: 8px;
+  color: #fff; font-family: 'Inter', sans-serif;
+  font-size: 15px; outline: none; margin-bottom: 12px;
   -webkit-appearance: none;
 }
 .auth-input::placeholder { color: #444; }
 .auth-input:focus { border-color: #666; }
 .auth-btn {
-  width: 100%; padding: 14px;
-  background: var(--red); color: #fff; border: none;
-  border-radius: 8px;
+  width: 100%; padding: 14px; background: var(--red); color: #fff; border: none; border-radius: 8px;
   font-family: var(--font-display), sans-serif;
   font-size: 17px; font-weight: 700; font-style: italic;
-  cursor: pointer; transition: opacity .2s;
-  margin-bottom: 12px;
+  cursor: pointer; transition: opacity .2s; margin-bottom: 12px;
 }
 .auth-btn:hover { opacity: .9; }
 .auth-btn:disabled { opacity: .5; cursor: not-allowed; }
 .auth-skip {
-  width: 100%; padding: 10px;
-  background: none; border: none; color: #444;
-  font-family: var(--font-body), sans-serif;
-  font-size: 12px; letter-spacing: .06em;
-  text-transform: uppercase; cursor: pointer;
-  transition: color .15s;
+  width: 100%; padding: 10px; background: none; border: none; color: #444;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+  cursor: pointer; transition: color .15s;
 }
 .auth-skip:hover { color: #888; }
-
-/* ── SAVED STATE ── */
-.ca-saved {
-  color: var(--red) !important;
-}
-.ca-saved svg {
-  stroke: var(--red);
-}
-
-
-
 /* ── FRED ONLINE DOT ── */
 .fred-online-dot {
-  display: inline-block;
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: #00c27a;
-  margin-left: 4px;
-  vertical-align: middle;
-  position: relative;
-  top: -3px;
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: #00c27a; margin-left: 4px; vertical-align: middle; position: relative; top: -3px;
 }
-
 /* ── LOADING MESSAGES ── */
-.load-txt-main {
-  font-family: var(--font-display), sans-serif;
-  font-size: 18px; font-weight: 700;
-  color: #fff; letter-spacing: -.01em;
-  text-align: center;
-}
-.load-txt-sub {
-  font-size: 11px; color: var(--dim);
-  letter-spacing: .08em; text-transform: uppercase;
-  text-align: center; margin-top: 4px;
-}
+.load-txt-main { font-family: var(--font-display), sans-serif; font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -.01em; text-align: center; }
+.load-txt-sub { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--dim); letter-spacing: .08em; text-transform: uppercase; text-align: center; margin-top: 4px; }
+/* ── ANIMATIONS ── */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
