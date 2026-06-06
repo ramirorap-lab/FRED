@@ -93,6 +93,7 @@ function Poster({ poster, title, bg, useBackdrop }) {
 
 function FredCard({ msg, onSave }) {
   const [posterFailed, setPosterFailed] = useState(false);
+  const [usePoster, setUsePoster]       = useState(false); // fallback to poster if backdrop fails
   const bg = bgClass(msg.title);
   const isGreeting = !msg.title;
   const trailerUrl = msg.title
@@ -109,14 +110,22 @@ function FredCard({ msg, onSave }) {
               <div className="fred-pick-ph">{msg.title.charAt(0)}</div>
               {!posterFailed && (msg.backdrop || msg.poster) && (
                 <img
-                  src={`https://image.tmdb.org/t/p/w780${msg.backdrop || msg.poster}`}
+                  src={usePoster
+                    ? `https://image.tmdb.org/t/p/w500${msg.poster}`
+                    : `https://image.tmdb.org/t/p/w780${msg.backdrop || msg.poster}`}
                   alt={msg.title}
-                  onError={() => setPosterFailed(true)}
+                  onError={() => {
+                    if (!usePoster && msg.poster && msg.backdrop) {
+                      setUsePoster(true); // backdrop failed, try poster
+                    } else {
+                      setPosterFailed(true);
+                    }
+                  }}
                   style={{
                     position: 'absolute', top: 0, left: 0,
                     width: '100%', height: '100%',
                     objectFit: 'cover',
-                    objectPosition: msg.backdrop ? 'center center' : 'center top',
+                    objectPosition: (msg.backdrop && !usePoster) ? 'center center' : 'center top',
                   }}
                 />
               )}
