@@ -68,8 +68,10 @@ Fields:
 - reasoning: one sentence
 
 Critical rules:
-- "is that a X?" = needs_recommendation false
+- "is that a X?" = needs_recommendation false, answer the question
+- "show me the card" / "show it" / "post it" / "show the movie" = needs_recommendation true, re-use the last recommended title as the actor field so TMDB can fetch it
 - "another" / "different" / "something else" = inherit genre/vibe from earlier, needs_recommendation true
+- "from X" / "by X" / "something with X" = set actor field to X, needs_recommendation true
 - TMDB IDs are in [tmdb_id:NUMBER] tags — extract ALL into exclude_ids
 - Vibe queries like "rainy day", "date night", "something cozy", "will destroy me" → set vibe field
 - For vibe queries also set relevant genres array
@@ -319,17 +321,17 @@ export async function POST(req) {
       return NextResponse.json({ text: data.content?.[0]?.text?.trim() || '', title: '', platform: '', runtime: '', meta: '' });
     }
 
-    // Step 2: Search TMDB
+      // Step 2: Search TMDB
     let film = null, platform = 'Check streaming', runtime = '', awardBadge = null, details = null;
     const hasSearchParams = params.genre || params.genres?.length || params.vibe || params.actor;
 
     if (hasSearchParams && tmdbToken) {
-      // Actor/director query — search by person first
       if (params.actor && !params.genre && !params.vibe) {
+        // Actor/director query — search by person, fallback to title search
         film = await searchByPerson(params.actor, tmdbToken);
+        if (!film) film = await searchByTitle(params.actor, tmdbToken);
       } else {
         film = await searchTMDB(params, platforms, tmdbToken);
-        // If actor specified too, try to filter by them (best effort)
       }
       if (film) {
         details    = await getDetails(film.id, params.is_series, tmdbToken);
