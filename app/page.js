@@ -107,11 +107,19 @@ function FredCard({ msg, onSave }) {
           <div className="fred-pick-card">
             <div className={`fred-pick-poster ${bg}`}>
               <div className="fred-pick-ph">{msg.title.charAt(0)}</div>
-              {(msg.backdrop || msg.poster) && !posterFailed && (
+              {!posterFailed && (msg.backdrop || msg.poster) && (
                 <img
-                  src={`https://image.tmdb.org/t/p/${msg.backdrop ? 'w1280' : 'w500'}${msg.backdrop || msg.poster}`}
+                  src={`https://image.tmdb.org/t/p/${msg.backdrop ? 'w780' : 'w500'}${msg.backdrop || msg.poster}`}
                   alt={msg.title}
-                  onError={() => setPosterFailed(true)}
+                  onError={(e) => {
+                    // If backdrop fails, try poster before giving up
+                    if (msg.backdrop && msg.poster && e.target.src.includes(msg.backdrop)) {
+                      e.target.src = `https://image.tmdb.org/t/p/w500${msg.poster}`;
+                      e.target.style.objectPosition = 'center top';
+                    } else {
+                      setPosterFailed(true);
+                    }
+                  }}
                   style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', objectPosition: msg.backdrop ? 'center center' : 'center top' }} />
               )}
               <div className="fred-pick-grad" />
