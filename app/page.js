@@ -335,8 +335,12 @@ export default function Fred() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       const newPicks = data.picks || [];
-      // Track all shown IDs so refreshes never repeat
+      // Track shown IDs — cap at 8 so we never exhaust TMDB results
       newPicks.forEach(p => seenPickIds.current.add(p.tmdb_id || p.id));
+      if (seenPickIds.current.size > 8) {
+        const arr = [...seenPickIds.current];
+        seenPickIds.current = new Set(arr.slice(-8));
+      }
       setPicks(newPicks);
     } catch (e) {
       setError(e.message || "Fred couldn't connect. Try again.");
@@ -945,7 +949,9 @@ export default function Fred() {
           </div>
           <div className="tonight-picks-sub">Tonight's picks</div>
           <div className="tonight-count-sub">
-            2 films · 1 series
+            {picks.length > 0
+              ? `${picks.filter(p=>p.type!=='series').length} film${picks.filter(p=>p.type!=='series').length!==1?'s':''} · ${picks.filter(p=>p.type==='series').length} series`
+              : '2 films · 1 series'}
             {tasteProfile && <span className="taste-badge">↑ Letterboxd</span>}
           </div>
         </div>
