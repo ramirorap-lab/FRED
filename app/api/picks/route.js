@@ -21,7 +21,7 @@ const MOOD_GENRE_MAP = {
 // TMDB keyword IDs: philosophical=3801, psychological=165, surrealism=10349,
 // dystopia=179431, satire=2651, thought-provoking=9882, nonlinear=4764
 const SMART_KEYWORDS = '3801,165,10349,179431,2651,4764';
-const SMART_GENRES   = [18, 878, 9648, 53, 99]; // drama, sci-fi, mystery, thriller, documentary
+const SMART_GENRES   = [878, 9648, 53, 99]; // sci-fi, mystery, thriller, documentary — no drama (too broad)
 const SMART_MIN_RATING = '7.5';
 const SMART_MIN_VOTES  = '500'; // lower than fiction — docs rarely hit 1000
 
@@ -71,6 +71,54 @@ const AWARDS_DB = {
   1079091:{ oscar: 'Winner' }, 1010581:{ oscar: 'Nominated' },
   557:    { cannes: "Palme d'Or" }, 696374: { cannes: "Palme d'Or" },
 };
+
+// ── Blocklist — titles Fred should never recommend in picks ──
+// Too mainstream, wrong vibe, algorithm-bait, or repeatedly surfaced
+const BLOCKLIST = new Set([
+  // Korean romance drama algorithm bait
+  120089, // My Demon
+  125987, // Redeeming Love
+  114472, // My Dearest Assassin
+  // Overexposed / wrong genre for mood
+  508947, // Turning Red
+  438695, // Sing 2
+  398978, // The Christmas Chronicles
+  823464, // Godzilla x Kong
+  // Add more as you encounter them
+]);
+
+// ── Haiku reranker — picks best film from candidates given mood context ──
+async function rerankWithHaiku(candidates, moods, apiKey) {
+  if (!apiKey || candidates.length <= 1) return candidates[0] || null;
+
+  const list = candidates.slice(0, 15).map((f, i) =>
+    `${i + 1}. ${f.title || f.name} (${(f.release_date || f.first_air_date || '').slice(0,4)}) — ${f.overview?.slice(0, 120) || ''}`
+  ).join('
+');
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 10,
+      system: `You are a film curator. Given a list of films and a mood, return ONLY the number of the best pick. Nothing else — just the number.`,
+      messages: [{
+        role: 'user',
+        content: `Mood: ${moods.join(' + ')}
+
+Films:
+${list}
+
+Which number best fits the mood? Reply with just the number.`,
+      }],
+    }),
+  });
+
+  const data = await res.json();
+  const pick = parseInt(data.content?.[0]?.text?.trim()) - 1;
+  return candidates[pick] ?? candidates[0];
+}
 
 function awardBadge(id) {
   const a = AWARDS_DB[id];
@@ -143,7 +191,7 @@ async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries
   const res  = await fetch(`${endpoint}?${params}`, { headers: { Authorization: `Bearer ${tmdbToken}` } });
   const data = await res.json();
   const excludeSet = new Set(exclude || []);
-  return (data.results || []).filter(r => !excludeSet.has(r.id));
+  return (data.results || []).filter(r => !excludeSet.has(r.id) && !BLOCKLIST.has(r.id));
 }
 
 // Animation genre ID
@@ -243,16 +291,24 @@ export async function GET(req) {
   const genreIds = [...new Set(moods.flatMap(m => MOOD_GENRE_MAP[m] || []))];
 
   try {
+    // For smart mood, override genreIds for series too
+    const smartSolo = moods.length === 1 && moods[0] === 'smart';
+    const seriesGenreIds = smartSolo ? SMART_GENRES : genreIds;
+
     const [allTimeResults, recentResults, seriesResults, redditPick] = await Promise.all([
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: false, moods, page }, tmdbToken),
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: true,  isSeries: false, moods, page: 1 }, tmdbToken),
-      tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: true,  moods, page }, tmdbToken),
+      tmdbDiscover({ genreIds: seriesGenreIds, platforms, exclude, recentOnly: false, isSeries: true, moods, page }, tmdbToken),
       getRedditPick(exclude, supabase),
     ]);
 
     // Cap animation to 1 slot across all-time results
     const cappedAllTime = capAnimation(allTimeResults);
-    const film1   = cappedAllTime[0] || null;
+
+    // Rerank top candidates with Haiku for the primary slot
+    const film1   = apiKey
+      ? await rerankWithHaiku(cappedAllTime.slice(0, 15), moods, apiKey)
+      : cappedAllTime[0] || null;
     const film2   = cappedAllTime.find(r => r.id !== film1?.id) || null;
     const usedIds = new Set([film1?.id, film2?.id].filter(Boolean));
 
@@ -261,9 +317,12 @@ export async function GET(req) {
     const film3   = recentResults.find(r =>
       !usedIds.has(r.id) && !(alreadyHasAnimation && isAnimated(r))
     ) || recentResults.find(r => !usedIds.has(r.id)) || null;
-    const series1 = seriesResults.find(r =>
+    const seriesCandidates = seriesResults.filter(r =>
       !(alreadyHasAnimation && isAnimated(r))
-    ) || seriesResults[0] || null;
+    );
+    const series1 = apiKey
+      ? await rerankWithHaiku(seriesCandidates.slice(0, 15), moods, apiKey)
+      : seriesCandidates[0] || null;
 
     // Reddit pick — only include if not already in slots
     const redditFilm = redditPick && !usedIds.has(redditPick.tmdb_id) ? redditPick : null;
