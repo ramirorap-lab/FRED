@@ -247,12 +247,12 @@ async function fetchCuratedDoc(exclude, platforms, tmdbToken) {
   };
   const providerIds = platforms.map(p => PROVIDER_MAP[p]).filter(Boolean);
 
-  // Shuffle the list so we don't always get the same doc
   const shuffled = [...VALID_DOCUMENTARY_IDS]
     .filter(id => !excludeSet.has(id) && !BLOCKLIST.has(id))
     .sort(() => Math.random() - 0.5);
 
-  for (const id of shuffled.slice(0, 8)) {
+  // First pass: platform-matched
+  for (const id of shuffled) {
     try {
       const [detailRes, providerRes] = await Promise.all([
         fetch(`https://api.themoviedb.org/3/movie/${id}?language=en-US`,
@@ -262,26 +262,32 @@ async function fetchCuratedDoc(exclude, platforms, tmdbToken) {
       ]);
       const detail    = await detailRes.json();
       const providers = await providerRes.json();
-      const flatrate  = providers.results?.US?.flatrate || [];
 
-      // Check if available on user's platforms (or return regardless if no platform filter)
+      // Hard validate — must be a real documentary
+      const genreIds = (detail.genres || []).map(g => g.id);
+      const isDoc = genreIds.includes(99);
+      if (!isDoc || !detail.id || BLOCKLIST.has(detail.id)) continue;
+
+      const flatrate = providers.results?.US?.flatrate || [];
       const available = providerIds.length === 0 ||
         flatrate.some(p => providerIds.includes(String(p.provider_id)));
 
-      if (available && detail.id) return detail;
+      if (available) return detail;
     } catch { continue; }
   }
 
-  // Fallback: return best doc regardless of platform — still from curated list only
-  for (const id of shuffled.slice(0, 5)) {
+  // Second pass: ignore platform, but still validate it's a documentary
+  for (const id of shuffled.slice(0, 6)) {
     try {
-      const res  = await fetch(`https://api.themoviedb.org/3/movie/${id}?language=en-US`,
+      const res    = await fetch(`https://api.themoviedb.org/3/movie/${id}?language=en-US`,
         { headers: { Authorization: `Bearer ${tmdbToken}` } });
-      const data = await res.json();
-      if (data.id && !BLOCKLIST.has(data.id)) return data;
+      const detail = await res.json();
+      const genreIds = (detail.genres || []).map(g => g.id);
+      if (detail.id && genreIds.includes(99) && !BLOCKLIST.has(detail.id)) return detail;
     } catch { continue; }
   }
-  return null; // Return null — never fall through to random TMDB results
+
+  return null;
 }
 
 async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries, page = 1, moods = [] }, tmdbToken) {
