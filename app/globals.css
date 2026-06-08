@@ -671,6 +671,12 @@ html, body {
   color: #555; padding: 4px 0 12px;
 }
 
+/* ── SHARE BUTTON ── */
+.ca-sharing {
+  color: var(--red) !important;
+  opacity: .7;
+}
+
 /* ── MIC BUTTON ── */
 .cm {
   width: 36px; height: 36px; border-radius: 50%;
