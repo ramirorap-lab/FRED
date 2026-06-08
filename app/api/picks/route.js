@@ -73,19 +73,63 @@ const AWARDS_DB = {
 };
 
 // ── Blocklist — titles Fred should never recommend in picks ──
-// Too mainstream, wrong vibe, algorithm-bait, or repeatedly surfaced
 const BLOCKLIST = new Set([
-  // Korean romance drama algorithm bait
   120089, // My Demon
   125987, // Redeeming Love
   114472, // My Dearest Assassin
-  // Overexposed / wrong genre for mood
   508947, // Turning Red
   438695, // Sing 2
   398978, // The Christmas Chronicles
   823464, // Godzilla x Kong
-  // Add more as you encounter them
+  698507, // Predator: Badlands
+  // Add more as you encounter them — find TMDB ID at themoviedb.org
 ]);
+
+// ── Curated documentary list — TMDB IDs ──
+// Hand-picked from RT, Netflix, Hulu top lists — no TMDB genre tagging issues
+const DOCUMENTARY_IDS = [
+  // All-time acclaimed
+  9947,   // Man on Wire (2008)
+  33223,  // Exit Through the Gift Shop (2010)
+  75780,  // Searching for Sugar Man (2012)
+  27905,  // Grizzly Man (2005)
+  76864,  // The Act of Killing (2012)
+  293660, // Amy (2015)
+  264644, // The Look of Silence (2014)
+  355008, // 13th (2016)
+  480530, // Free Solo (2018)
+  522016, // Apollo 11 (2019)
+  531428, // Flee (2021)
+  614930, // Summer of Soul (2021)
+  615904, // My Octopus Teacher (2020)
+  550988, // The Rescue (2021)
+  803196, // All That Breathes (2022)
+  843241, // Fire of Love (2022)
+  897153, // Navalny (2022)
+  934632, // All the Beauty and the Bloodshed (2022)
+  502170, // The Velvet Underground (2021)
+  395834, // Won't You Be My Neighbor? (2018)
+  109418, // Stories We Tell (2012)
+  670,    // Bowling for Columbine (2002)
+  14819,  // Anvil! The Story of Anvil (2008)
+  // Recent highly rated (2023-2025)
+  961268, // Still: A Michael J. Fox Movie (2023) — Apple TV+, 8.1 IMDB
+  557600, // Minding the Gap (2018) — Hulu, 100% RT
+  1100782,// Daughters (2024) — Netflix, Sundance winner
+  1149175,// Sly Lives! (2025) — Questlove, Hulu
+  1043816,// All That Breathes (already above)
+  1086747,// The Deepest Breath (2023) — Netflix
+  1064687,// Unknown: Cave of Bones (2023) — Netflix
+  1023945,// Beckham (2023) — Netflix series
+  976893, // American Symphony (2023) — Netflix
+  1005806,// The Greatest Night in Pop (2024) — Netflix
+  1096257,// What Jennifer Did (2024) — Netflix
+  900667, // Stutz (2022) — Netflix, Jonah Hill
+  1079091,// Body of Lies (skip — that's Brutalist)
+];
+
+// Clean the list — remove any non-numbers
+const VALID_DOCUMENTARY_IDS = DOCUMENTARY_IDS.filter(id => typeof id === 'number' && id < 2000000);
 
 // ── Haiku reranker — picks best film from candidates given mood context ──
 async function rerankWithHaiku(candidates, moods, apiKey) {
@@ -205,6 +249,51 @@ async function getDirectorPick(moods, exclude = [], supabase, tmdbToken) {
     console.error('Director pick error:', e);
     return null;
   }
+}
+
+// ── Pick a curated documentary available on user platforms ──
+async function fetchCuratedDoc(exclude, platforms, tmdbToken) {
+  const excludeSet = new Set(exclude || []);
+  const providerIds = platforms.map(p => ({
+    'Netflix': '8', 'Prime Video': '9', 'Hulu': '15',
+    'Max': '1899', 'Apple TV+': '350', 'Disney+': '337', 'Peacock': '386',
+  }[p]).filter(Boolean);
+
+  // Shuffle the list so we don't always get the same doc
+  const shuffled = [...VALID_DOCUMENTARY_IDS]
+    .filter(id => !excludeSet.has(id) && !BLOCKLIST.has(id))
+    .sort(() => Math.random() - 0.5);
+
+  for (const id of shuffled.slice(0, 8)) {
+    try {
+      const [detailRes, providerRes] = await Promise.all([
+        fetch(`https://api.themoviedb.org/3/movie/${id}?language=en-US`,
+          { headers: { Authorization: `Bearer ${tmdbToken}` } }),
+        fetch(`https://api.themoviedb.org/3/movie/${id}/watch/providers`,
+          { headers: { Authorization: `Bearer ${tmdbToken}` } }),
+      ]);
+      const detail    = await detailRes.json();
+      const providers = await providerRes.json();
+      const flatrate  = providers.results?.US?.flatrate || [];
+
+      // Check if available on user's platforms (or return regardless if no platform filter)
+      const available = providerIds.length === 0 ||
+        flatrate.some(p => providerIds.includes(String(p.provider_id)));
+
+      if (available && detail.id) return detail;
+    } catch { continue; }
+  }
+
+  // Fallback: return best doc regardless of platform
+  for (const id of shuffled.slice(0, 3)) {
+    try {
+      const res  = await fetch(`https://api.themoviedb.org/3/movie/${id}?language=en-US`,
+        { headers: { Authorization: `Bearer ${tmdbToken}` } });
+      const data = await res.json();
+      if (data.id) return data;
+    } catch { continue; }
+  }
+  return null;
 }
 
 async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries, page = 1, moods = [] }, tmdbToken) {
@@ -362,10 +451,8 @@ export async function GET(req) {
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: true,  isSeries: false, moods, page: 1 }, tmdbToken),
       tmdbDiscover({ genreIds: seriesGenreIds, platforms, exclude, recentOnly: false, isSeries: true, moods, page }, tmdbToken),
       getDirectorPick(moods, exclude, supabase, tmdbToken),
-      // Documentary slot — only for smart mood
-      smartSolo
-        ? tmdbDiscover({ genreIds: [99], platforms, exclude, recentOnly: false, isSeries: false, moods: [], page }, tmdbToken)
-        : Promise.resolve([]),
+      // Documentary slot — curated list, not TMDB genre query
+      smartSolo ? fetchCuratedDoc(exclude, platforms, tmdbToken) : Promise.resolve(null),
     ]);
 
     // SLOT 1 — Fred's Pick: best rated for mood, Haiku reranked
@@ -384,9 +471,9 @@ export async function GET(req) {
     // SLOT 3 — Smart: documentary | Others: recent 2025/2026 only if high quality
     const alreadyHasAnimation = isAnimated(film1);
     let film3 = null;
-    if (smartSolo && docResults.length) {
-      // For smart: pick best documentary not already used
-      film3 = docResults.find(r => !usedIds.has(r.id)) || null;
+    if (smartSolo && docResults?.id) {
+      // For smart: use curated documentary
+      film3 = !usedIds.has(docResults.id) ? docResults : null;
     } else {
       // For other moods: only show recent if vote_average >= 7.0 AND vote_count >= 100
       // This prevents weak 2025 films from appearing just because they're new
