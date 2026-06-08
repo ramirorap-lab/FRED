@@ -259,6 +259,7 @@ html, body {
 .label-director { color: var(--red); background: rgba(229,9,20,.1); }
 .label-recent   { color: #7EB8A4; background: rgba(126,184,164,.08); border: .5px solid rgba(126,184,164,.25); }
 .label-reddit   { color: #FF6314; background: rgba(255,99,20,.08); border: .5px solid rgba(255,99,20,.25); }
+.label-doc      { color: #7eb8f7; background: rgba(126,184,247,.08); border: .5px solid rgba(126,184,247,.25); }
 .pick-sep { color: #444; font-size: 11px; flex-shrink: 0; }
 .plat-name {
   font-family: 'Inter', sans-serif;
