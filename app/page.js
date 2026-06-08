@@ -928,9 +928,10 @@ export default function Fred() {
         <div className="tonight-mood-header">
           <div className="tonight-mood-label">
             {moods.length > 0
-              ? moods.map(m => m.toUpperCase()).join(' + ') + ' PICKS'
-              : "TONIGHT'S PICKS"}
+              ? moods.map(m => m.toUpperCase()).join(' + ')
+              : "TONIGHT"}
           </div>
+          <div className="tonight-picks-sub">Tonight's picks</div>
           <div className="tonight-count-sub">
             2 films · 1 series
             {tasteProfile && <span className="taste-badge">↑ Letterboxd</span>}
