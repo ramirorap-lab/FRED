@@ -181,44 +181,39 @@ async function getDirectorPick(moods, exclude = [], supabase, tmdbToken) {
   try {
     if (!supabase) return null;
 
-    // Map moods to genre keywords for matching
-    const moodKeywords = {
-      funny:     ['comedy', 'comedies', 'funny', 'humor'],
-      dark:      ['crime', 'noir', 'dark', 'thriller', 'murder'],
-      smart:     ['philosophy', 'political', 'intellectual', 'satire', 'psychological'],
-      romantic:  ['love', 'romance', 'romantic', 'passion'],
-      intense:   ['war', 'thriller', 'tension', 'violence', 'survival'],
-      horror:    ['horror', 'terror', 'ghost', 'fear', 'supernatural'],
-      adventure: ['adventure', 'epic', 'journey', 'quest', 'western'],
-      family:    ['family', 'children', 'fairy', 'animation'],
-    };
-
-    const keywords = moods.flatMap(m => moodKeywords[m] || []);
-
-    // Get all director picks, then filter by mood keywords in quote or title
-    const { data, error } = await supabase
-      .from('director_picks')
-      .select('*')
-      .not('director', 'in', '("Academy Awards","Cannes Film Festival")')
-      .limit(200);
-
-    if (error || !data?.length) return null;
-
     const excludeSet = new Set(exclude);
 
-    // Score each pick by mood keyword matches
-    const scored = data
-      .filter(p => p.film_title && p.film_year >= 1970) // not too old
-      .map(p => {
-        const text = `${p.film_title} ${p.quote || ''}`.toLowerCase();
-        const score = keywords.reduce((s, kw) => s + (text.includes(kw) ? 1 : 0), 0);
-        return { ...p, score };
-      })
-      .filter(p => p.score > 0)
-      .sort((a, b) => b.score - a.score || Math.random() - 0.5);
+    // Query using database mood tags (set by migration SQL)
+    let pool = [];
+    if (moods.length > 0) {
+      const { data: tagged } = await supabase
+        .from('director_picks')
+        .select('*')
+        .not('director', 'in', '("Academy Awards","Cannes Film Festival")')
+        .overlaps('moods', moods)
+        .limit(100);
+      pool = tagged || [];
+    }
+
+    // Fallback: if no tagged results, use any director picks
+    if (!pool.length) {
+      const { data: fallback } = await supabase
+        .from('director_picks')
+        .select('*')
+        .not('director', 'in', '("Academy Awards","Cannes Film Festival")')
+        .limit(100);
+      pool = fallback || [];
+    }
+
+    if (!pool.length) return null;
+
+    const candidates = pool
+      .filter(p => p.film_title && !excludeSet.has(p.film_title))
+      .sort(() => Math.random() - 0.5);
 
     // Pick one, verify it exists on TMDB
-    for (const pick of scored.slice(0, 10)) {
+    // Pick one, verify it exists on TMDB
+    for (const pick of candidates.slice(0, 15)) {
       const res = await fetch(
         `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(pick.film_title)}&language=en-US`,
         { headers: { Authorization: `Bearer ${tmdbToken}` } }
@@ -425,7 +420,9 @@ export async function GET(req) {
   const excludeRaw = (searchParams.get('exclude')   || '').split(',').filter(Boolean);
   const exclude    = excludeRaw.map(Number).filter(Boolean);
   const isRefresh  = exclude.length > 0;
-  const page       = isRefresh ? Math.floor(Math.random() * 3) + 1 : 1;
+  // Each refresh goes deeper: exclude count drives page offset + random spread
+  const pageOffset = isRefresh ? Math.floor(exclude.length / 3) : 0;
+  const page       = isRefresh ? (Math.floor(Math.random() * 5) + 1 + pageOffset) : 1;
 
   const apiKey    = process.env.ANTHROPIC_API_KEY;
   const tmdbToken = process.env.TMDB_TOKEN;
