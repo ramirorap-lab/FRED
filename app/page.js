@@ -515,7 +515,6 @@ export default function Fred() {
         }
 
         // Title
-        ctx.textAlign = 'left';
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 30px Georgia';
         const words = (pick.title || '').split(' ');
@@ -539,8 +538,15 @@ export default function Fred() {
           }
           noteLines.push(nLine);
         }
-        const totalH = titleLines.slice(0,2).length * 38 + (noteLines.slice(0,2).length * 20) + 16;
+        const totalH = 18 + 10 + titleLines.slice(0,2).length * 38 + (noteLines.slice(0,2).length * 20) + 16;
         let y = H - totalH - 28;
+
+        // "Fred says" label
+        ctx.font = '600 11px Arial';
+        ctx.fillStyle = 'rgba(229,9,20,0.9)';
+        ctx.fillText('FRED SAYS WATCH THIS', 24, y);
+        y += 22;
+
         ctx.font = 'bold 30px Georgia';
         ctx.fillStyle = '#fff';
         titleLines.slice(0, 2).forEach(l => { ctx.fillText(l, 24, y); y += 38; });
