@@ -929,7 +929,7 @@ export default function Fred() {
           <div className="tonight-mood-label">
             {moods.length > 0
               ? moods.map(m => m.toUpperCase()).join(' + ') + ' PICKS'
-              : 'TONIGHT'S PICKS'}
+              : "TONIGHT'S PICKS"}
           </div>
           <div className="tonight-count-sub">
             2 films · 1 series
