@@ -183,25 +183,28 @@ async function getDirectorPick(moods, exclude = [], supabase, tmdbToken) {
 
     const excludeSet = new Set(exclude);
 
-    // Query using database mood tags (set by migration SQL)
+    // Query using database mood tags if available, else fetch all
     let pool = [];
-    if (moods.length > 0) {
-      const { data: tagged } = await supabase
-        .from('director_picks')
-        .select('*')
-        .not('director', 'in', '("Academy Awards","Cannes Film Festival")')
-        .overlaps('moods', moods)
-        .limit(100);
-      pool = tagged || [];
-    }
+    try {
+      if (moods.length > 0) {
+        const { data: tagged, error: tagErr } = await supabase
+          .from('director_picks')
+          .select('*')
+          .not('director', 'in', '("Academy Awards","Cannes Film Festival")')
+          .overlaps('moods', moods)
+          .limit(100);
+        if (!tagErr) pool = tagged || [];
+      }
+    } catch { /* moods column may not exist yet */ }
 
-    // Fallback: if no tagged results, use any director picks
+    // Fallback: fetch all and pick randomly
     if (!pool.length) {
       const { data: fallback } = await supabase
         .from('director_picks')
         .select('*')
         .not('director', 'in', '("Academy Awards","Cannes Film Festival")')
-        .limit(100);
+        .order('created_at', { ascending: false })
+        .limit(150);
       pool = fallback || [];
     }
 
@@ -211,21 +214,30 @@ async function getDirectorPick(moods, exclude = [], supabase, tmdbToken) {
       .filter(p => p.film_title && !excludeSet.has(p.film_title))
       .sort(() => Math.random() - 0.5);
 
+    console.log(`Director pick pool: ${candidates.length} candidates for moods: ${moods.join(',')}`);
+
     // Pick one, verify it exists on TMDB
-    // Pick one, verify it exists on TMDB
-    for (const pick of candidates.slice(0, 15)) {
-      const res = await fetch(
-        `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(pick.film_title)}&language=en-US`,
-        { headers: { Authorization: `Bearer ${tmdbToken}` } }
-      );
-      const data2 = await res.json();
-      const film = data2.results?.find(f =>
-        Math.abs((f.release_date?.slice(0,4) || 0) - pick.film_year) <= 2
-        && !excludeSet.has(f.id)
-      );
-      if (film) return { ...film, director_name: pick.director, director_quote: pick.quote };
+    for (const pick of candidates.slice(0, 20)) {
+      try {
+        const res = await fetch(
+          `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(pick.film_title)}&language=en-US`,
+          { headers: { Authorization: `Bearer ${tmdbToken}` } }
+        );
+        const data2 = await res.json();
+        // Loosen year match to ±3 years, also try first result if title matches well
+        const film = data2.results?.find(f =>
+          Math.abs((f.release_date?.slice(0,4) || 0) - pick.film_year) <= 3
+          && !excludeSet.has(f.id)
+        ) || (data2.results?.[0] && !excludeSet.has(data2.results[0].id) ? data2.results[0] : null);
+
+        if (film) {
+          console.log(`Director pick found: ${pick.film_title} → ${film.title} (${pick.director})`);
+          return { ...film, director_name: pick.director, director_quote: pick.quote };
+        }
+      } catch { continue; }
     }
 
+    console.log('Director pick: no TMDB match found');
     return null;
   } catch (e) {
     console.error('Director pick error:', e);
@@ -330,14 +342,25 @@ async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries
   const res  = await fetch(`${endpoint}?${params}`, { headers: { Authorization: `Bearer ${tmdbToken}` } });
   const data = await res.json();
   const excludeSet = new Set(exclude || []);
-  return (data.results || []).filter(r => !excludeSet.has(r.id) && !BLOCKLIST.has(r.id));
+  const results = (data.results || []).filter(r => !excludeSet.has(r.id) && !BLOCKLIST.has(r.id));
+
+  // If platform filter returns too few results, retry without platform constraint
+  if (results.length < 8 && params.has('with_watch_providers')) {
+    params.delete('with_watch_providers');
+    params.delete('watch_region');
+    const res2  = await fetch(`${endpoint}?${params}`, { headers: { Authorization: `Bearer ${tmdbToken}` } });
+    const data2 = await res2.json();
+    return (data2.results || []).filter(r => !excludeSet.has(r.id) && !BLOCKLIST.has(r.id));
+  }
+
+  return results;
 }
 
 // Animation genre ID
 const ANIMATION_GENRE = 16;
 
 function isAnimated(film) {
-  return (film.genre_ids || []).includes(ANIMATION_GENRE);
+  return (film.genre_ids || film.genres?.map(g=>g.id) || []).includes(ANIMATION_GENRE);
 }
 
 // Cap animated films to 1 across all slots
@@ -420,9 +443,9 @@ export async function GET(req) {
   const excludeRaw = (searchParams.get('exclude')   || '').split(',').filter(Boolean);
   const exclude    = excludeRaw.map(Number).filter(Boolean);
   const isRefresh  = exclude.length > 0;
-  // Each refresh goes deeper: exclude count drives page offset + random spread
-  const pageOffset = isRefresh ? Math.floor(exclude.length / 3) : 0;
-  const page       = isRefresh ? (Math.floor(Math.random() * 5) + 1 + pageOffset) : 1;
+  // Each refresh goes deeper: exclude count drives page offset + wide random spread
+  const pageOffset = isRefresh ? Math.floor(exclude.length / 2) : 0;
+  const page       = isRefresh ? (Math.floor(Math.random() * 8) + 1 + pageOffset) : 1;
 
   const apiKey    = process.env.ANTHROPIC_API_KEY;
   const tmdbToken = process.env.TMDB_TOKEN;
@@ -437,10 +460,14 @@ export async function GET(req) {
     const seriesGenreIds = smartSolo ? SMART_GENRES : genreIds;
 
     // Fetch all slot types in parallel
+    // Each slot gets its own random page so they never all hit the same results
+    const page2 = isRefresh ? (Math.floor(Math.random() * 8) + 1 + pageOffset) : 1;
+    const page3 = isRefresh ? (Math.floor(Math.random() * 8) + 1 + pageOffset) : 1;
+
     const [allTimeResults, recentResults, seriesResults, directorPickRaw, docResults] = await Promise.all([
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: false, moods, page }, tmdbToken),
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: true,  isSeries: false, moods, page: 1 }, tmdbToken),
-      tmdbDiscover({ genreIds: seriesGenreIds, platforms, exclude, recentOnly: false, isSeries: true, moods, page }, tmdbToken),
+      tmdbDiscover({ genreIds: seriesGenreIds, platforms, exclude, recentOnly: false, isSeries: true, moods, page: page3 }, tmdbToken),
       getDirectorPick(moods, exclude, supabase, tmdbToken),
       // Documentary slot — curated list, not TMDB genre query
       smartSolo ? fetchCuratedDoc(exclude, platforms, tmdbToken) : Promise.resolve(null),
