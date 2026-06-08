@@ -571,12 +571,21 @@ export default function Fred() {
         const fname = 'fred-' + (pick.title||'pick').replace(/[^a-z0-9]/gi,'-').toLowerCase() + '.png';
         const file = new File([blob], fname, { type: 'image/png' });
         try {
-          const shareUrl = 'https://fred-psi.vercel.app';
-          const shareText = `${pick.title} — watch it on ${pick.platform || 'streaming'}`;
+          // Text feels like a message from Fred — short, direct, no marketing
+          const platform = pick.platform || 'streaming';
+          const year = pick.year ? ` (${pick.year})` : '';
+          const rating = pick.rating ? ` · ${pick.rating}/10` : '';
+          const note = pick.fred_note ? pick.fred_note.replace(/^"|"$/g, '') : '';
+          const shareText = [
+            `${pick.title}${year}${rating}`,
+            note ? `"${note}"` : '',
+            `On ${platform} — fred-psi.vercel.app`,
+          ].filter(Boolean).join('\n\n');
+
           if (navigator.share && navigator.canShare({ files: [file] })) {
-            await navigator.share({ files: [file], title: pick.title, text: shareText, url: shareUrl });
+            await navigator.share({ files: [file], title: pick.title, text: shareText });
           } else if (navigator.share) {
-            await navigator.share({ title: pick.title, text: shareText, url: shareUrl });
+            await navigator.share({ title: pick.title, text: shareText, url: 'https://fred-psi.vercel.app' });
           } else {
             const url = URL.createObjectURL(blob);
             Object.assign(document.createElement('a'), { href: url, download: fname }).click();
