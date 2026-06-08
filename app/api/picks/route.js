@@ -8,7 +8,7 @@ const PROVIDER_IDS = {
 
 const MOOD_GENRE_MAP = {
   funny:     [35],
-  smart:     [18, 878, 9648],
+  smart:     [18, 878, 9648], // overridden by MOOD_SMART_KEYWORDS below
   dark:      [53, 18, 80],
   romantic:  [10749, 35],
   intense:   [53, 28],
@@ -16,6 +16,14 @@ const MOOD_GENRE_MAP = {
   adventure: [12, 28],
   family:    [10751, 16],
 };
+
+// Smart mood gets special treatment — keywords signal cerebral/complex films
+// TMDB keyword IDs: philosophical=3801, psychological=165, surrealism=10349,
+// dystopia=179431, satire=2651, thought-provoking=9882, nonlinear=4764
+const SMART_KEYWORDS = '3801,165,10349,179431,2651,4764';
+const SMART_GENRES   = [18, 878, 9648, 53, 99]; // drama, sci-fi, mystery, thriller, documentary
+const SMART_MIN_RATING = '7.5';
+const SMART_MIN_VOTES  = '500'; // lower than fiction — docs rarely hit 1000
 
 const MOOD_COMBO_MAP = {
   // funny + X
@@ -100,18 +108,24 @@ async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries
   const comboGenres = MOOD_COMBO_MAP[comboKey];
   const resolvedGenreIds = comboGenres || genreIds;
 
-  // Combo genres (AND) need lower threshold — niche intersections have fewer films
+  // Smart mood: use keywords + higher quality bar
+  const isSmart = moods.length === 1 && moods[0] === 'smart';
   const isCombo = !!comboGenres;
+
   const params = new URLSearchParams({
     sort_by: recentOnly ? 'popularity.desc' : 'vote_average.desc',
-    'vote_count.gte': recentOnly ? '100' : isCombo ? '200' : '500',
-    'vote_average.gte': recentOnly ? '6.5' : isCombo ? '6.8' : '7.2',
+    'vote_count.gte': recentOnly ? '100' : isSmart ? SMART_MIN_VOTES : isCombo ? '200' : '500',
+    'vote_average.gte': recentOnly ? '6.5' : isSmart ? SMART_MIN_RATING : isCombo ? '6.8' : '7.2',
     language: 'en-US',
     include_adult: 'false',
     page: String(page),
   });
 
-  if (resolvedGenreIds?.length) {
+  if (isSmart && !recentOnly) {
+    // Smart: use keywords OR across smart genres — films that signal intelligence
+    params.set('with_keywords', SMART_KEYWORDS);
+    params.set('with_genres', SMART_GENRES.join('|'));
+  } else if (resolvedGenreIds?.length) {
     params.set('with_genres', resolvedGenreIds.join(isCombo ? ',' : '|'));
   }
 
