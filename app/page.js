@@ -709,9 +709,34 @@ export default function Fred() {
           <div className="topbar-logo" onClick={() => go('taste')}>
             Fred{user && <span className="fred-online-dot"/>}
           </div>
-          <div className="topbar-right" style={{display:'flex',alignItems:'center',gap:'8px'}}>
+          <div className="topbar-right" style={{display:'flex',alignItems:'center',gap:'12px'}}>
             {user && <span style={{fontSize:'8px',color:'#00c27a',letterSpacing:'.1em',textTransform:'uppercase'}}>● Saved</span>}
-            Picks
+            <span style={{fontSize:'10px',letterSpacing:'.1em',textTransform:'uppercase',color:'#666'}}>Picks</span>
+            <button
+              onClick={() => {
+                if (loading || pullRefreshing) return;
+                const currentlyShown = picks.map(p => ({ id: p.tmdb_id || p.id }));
+                fetchPicks(platforms, moods, tasteProfile, [...watched, ...currentlyShown]);
+              }}
+              disabled={loading || pullRefreshing}
+              style={{
+                background:'none', border:'.5px solid #2a2a2d', borderRadius:'50%',
+                width:'28px', height:'28px', display:'flex', alignItems:'center',
+                justifyContent:'center', cursor:'pointer', color:'#555',
+                transition:'all .2s', flexShrink:0,
+                opacity: (loading || pullRefreshing) ? .4 : 1,
+              }}
+              title="Refresh picks"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+                width="13" height="13"
+                style={{
+                  animation: (loading || pullRefreshing) ? 'spin .8s linear infinite' : 'none'
+                }}>
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+            </button>
           </div>
         </div>
         <div className="tonight-count">
