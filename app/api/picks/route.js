@@ -145,6 +145,68 @@ async function getRedditPick(exclude = [], supabase) {
   }
 }
 
+// ── Fetch a director's pick matching the mood from Supabase ──
+async function getDirectorPick(moods, exclude = [], supabase, tmdbToken) {
+  try {
+    if (!supabase) return null;
+
+    // Map moods to genre keywords for matching
+    const moodKeywords = {
+      funny:     ['comedy', 'comedies', 'funny', 'humor'],
+      dark:      ['crime', 'noir', 'dark', 'thriller', 'murder'],
+      smart:     ['philosophy', 'political', 'intellectual', 'satire', 'psychological'],
+      romantic:  ['love', 'romance', 'romantic', 'passion'],
+      intense:   ['war', 'thriller', 'tension', 'violence', 'survival'],
+      horror:    ['horror', 'terror', 'ghost', 'fear', 'supernatural'],
+      adventure: ['adventure', 'epic', 'journey', 'quest', 'western'],
+      family:    ['family', 'children', 'fairy', 'animation'],
+    };
+
+    const keywords = moods.flatMap(m => moodKeywords[m] || []);
+
+    // Get all director picks, then filter by mood keywords in quote or title
+    const { data, error } = await supabase
+      .from('director_picks')
+      .select('*')
+      .not('director', 'in', '("Academy Awards","Cannes Film Festival")')
+      .limit(200);
+
+    if (error || !data?.length) return null;
+
+    const excludeSet = new Set(exclude);
+
+    // Score each pick by mood keyword matches
+    const scored = data
+      .filter(p => p.film_title && p.film_year >= 1970) // not too old
+      .map(p => {
+        const text = `${p.film_title} ${p.quote || ''}`.toLowerCase();
+        const score = keywords.reduce((s, kw) => s + (text.includes(kw) ? 1 : 0), 0);
+        return { ...p, score };
+      })
+      .filter(p => p.score > 0)
+      .sort((a, b) => b.score - a.score || Math.random() - 0.5);
+
+    // Pick one, verify it exists on TMDB
+    for (const pick of scored.slice(0, 10)) {
+      const res = await fetch(
+        `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(pick.film_title)}&language=en-US`,
+        { headers: { Authorization: `Bearer ${tmdbToken}` } }
+      );
+      const data2 = await res.json();
+      const film = data2.results?.find(f =>
+        Math.abs((f.release_date?.slice(0,4) || 0) - pick.film_year) <= 2
+        && !excludeSet.has(f.id)
+      );
+      if (film) return { ...film, director_name: pick.director, director_quote: pick.quote };
+    }
+
+    return null;
+  } catch (e) {
+    console.error('Director pick error:', e);
+    return null;
+  }
+}
+
 async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries, page = 1, moods = [] }, tmdbToken) {
   const providerIds = platforms.map(p => PROVIDER_IDS[p]).filter(Boolean).join('|');
   const endpoint = isSeries
@@ -294,88 +356,77 @@ export async function GET(req) {
     const smartSolo = moods.length === 1 && moods[0] === 'smart';
     const seriesGenreIds = smartSolo ? SMART_GENRES : genreIds;
 
-    const [allTimeResults, recentResults, seriesResults, redditPick] = await Promise.all([
+    // Fetch all 4 slot types in parallel
+    const [allTimeResults, recentResults, seriesResults, directorPickRaw] = await Promise.all([
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: false, moods, page }, tmdbToken),
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: true,  isSeries: false, moods, page: 1 }, tmdbToken),
       tmdbDiscover({ genreIds: seriesGenreIds, platforms, exclude, recentOnly: false, isSeries: true, moods, page }, tmdbToken),
-      getRedditPick(exclude, supabase),
+      getDirectorPick(moods, exclude, supabase, tmdbToken),
     ]);
 
-    // Cap animation to 1 slot across all-time results
+    // SLOT 1 — Fred's Pick: best rated for mood, Haiku reranked
     const cappedAllTime = capAnimation(allTimeResults);
-
-    // Rerank top candidates with Haiku for the primary slot
-    const film1   = apiKey
+    const film1 = apiKey
       ? await rerankWithHaiku(cappedAllTime.slice(0, 15), moods, apiKey)
       : cappedAllTime[0] || null;
-    const film2   = cappedAllTime.find(r => r.id !== film1?.id) || null;
-    const usedIds = new Set([film1?.id, film2?.id].filter(Boolean));
 
-    // For recent + series, skip animated if we already have one
-    const alreadyHasAnimation = isAnimated(film1) || isAnimated(film2);
-    const film3   = recentResults.find(r =>
+    const usedIds = new Set([film1?.id, directorPickRaw?.id].filter(Boolean));
+
+    // SLOT 2 — Director's Pick: from Supabase director_picks
+    const directorPick = directorPickRaw && directorPickRaw.id !== film1?.id
+      ? directorPickRaw : null;
+
+    // SLOT 3 — Recent: best 2025/2026 film not already used
+    const alreadyHasAnimation = isAnimated(film1);
+    const film3 = recentResults.find(r =>
       !usedIds.has(r.id) && !(alreadyHasAnimation && isAnimated(r))
     ) || recentResults.find(r => !usedIds.has(r.id)) || null;
+
+    // SLOT 4 — Series: best series for mood, Haiku reranked
     const seriesCandidates = seriesResults.filter(r =>
-      !(alreadyHasAnimation && isAnimated(r))
+      !usedIds.has(r.id) && !(alreadyHasAnimation && isAnimated(r))
     );
     const series1 = apiKey
       ? await rerankWithHaiku(seriesCandidates.slice(0, 15), moods, apiKey)
       : seriesCandidates[0] || null;
 
-    // Reddit pick — only include if not already in slots
-    const redditFilm = redditPick && !usedIds.has(redditPick.tmdb_id) ? redditPick : null;
-
-    const slots = [film1, film2, film3, series1].filter(Boolean);
+    // Build ordered slots: Fred's Pick, Director's Pick, Recent, Series
+    const slots = [film1, directorPick, film3, series1].filter(Boolean);
 
     const enriched = await Promise.all(slots.map(async (film, i) => {
-      const isSeries = i === 3;
+      const isDirector = film === directorPick;
+      const isSeries   = film === series1;
+      const isRecent   = (film.release_date || '').slice(0, 4) >= '2025' && film === film3;
+
       const [details, fredNote] = await Promise.all([
         getDetails(film.id, isSeries, tmdbToken),
         apiKey ? writeFredNote(film, isSeries, apiKey) : Promise.resolve(''),
       ]);
 
-      const isRecent = (film.release_date || film.first_air_date || '').slice(0, 4) >= '2025';
+      let pick_type = 'safe';
+      if (isDirector) pick_type = 'wildcard';
+      else if (isRecent) pick_type = 'recent';
+      else if (isSeries) pick_type = 'series';
 
       return {
-        id:          film.id,
-        tmdb_id:     film.id,
-        title:       film.title || film.name,
-        poster:      details.poster || film.poster_path,
-        backdrop:    details.backdrop,               // ← 16:9 hero image
-        year:        (film.release_date || film.first_air_date || '').slice(0, 4),
-        platform:    details.platform,
-        runtime:     details.runtime,
-        rating:      details.rating,
-        type:        isSeries ? 'series' : 'movie',
-        fred_note:   fredNote,
-        award_badge: awardBadge(film.id),
-        pick_type:   i === 2 && isRecent ? 'recent' : i === 0 ? 'safe' : 'stretch',
-        is_recent:   isRecent,
+        id:             film.id,
+        tmdb_id:        film.id,
+        title:          film.title || film.name,
+        poster:         details.poster   || film.poster_path   || null,
+        backdrop:       details.backdrop || film.backdrop_path || null,
+        year:           (film.release_date || film.first_air_date || '').slice(0, 4),
+        platform:       details.platform,
+        runtime:        details.runtime,
+        rating:         details.rating,
+        type:           isSeries ? 'series' : 'movie',
+        fred_note:      fredNote,
+        award_badge:    awardBadge(film.id),
+        pick_type,
+        is_recent:      isRecent,
+        director_name:  isDirector ? film.director_name  : null,
+        director_quote: isDirector ? film.director_quote : null,
       };
     }));
-
-    // Append reddit pick if available
-    if (redditFilm) {
-      const fredNote = apiKey ? await writeFredNote(redditFilm, false, apiKey) : '';
-      enriched.push({
-        id:          redditFilm.tmdb_id,
-        tmdb_id:     redditFilm.tmdb_id,
-        title:       redditFilm.title,
-        poster:      redditFilm.poster,
-        backdrop:    redditFilm.backdrop,
-        year:        redditFilm.year,
-        platform:    redditFilm.platform,
-        runtime:     '',
-        rating:      redditFilm.rating,
-        type:        'movie',
-        fred_note:   fredNote,
-        award_badge: awardBadge(redditFilm.tmdb_id),
-        pick_type:   'reddit',
-        is_recent:   false,
-        reddit_mention_count: redditFilm.mention_count,
-      });
-    }
 
     return NextResponse.json({ picks: enriched });
 
