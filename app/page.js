@@ -593,7 +593,7 @@ export default function Fred() {
           const rating = pick.rating ? ` · ${pick.rating}/10` : '';
           const note = pick.fred_note ? pick.fred_note.replace(/^"|"$/g, '') : '';
           const shareText = [
-            `${pick.title}${year}${rating}`,
+            `Fred picked: ${pick.title}${year}${rating}`,
             note ? `"${note}"` : '',
             `Watch on ${platform || 'streaming'}`,
           ].filter(Boolean).join('\n\n');
