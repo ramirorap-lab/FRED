@@ -653,6 +653,33 @@ export default function Fred() {
     }
   }
 
+  // Typewriter for taste screen
+  useEffect(() => {
+    const phrases = [
+      "Tell me what kind of night this is.",
+      "I don't do algorithms. I do taste.",
+      "Pick a mood. I'll find something that earns it.",
+      "Life's too short for bad films.",
+      "No trending lists. Just one real rec.",
+    ];
+    let pi = 0, ci = 0, del = false, timer;
+    const el = document.getElementById('tasteTyper');
+    if (!el) return;
+    function type() {
+      const p = phrases[pi];
+      if (!del) {
+        el.textContent = p.slice(0, ++ci);
+        if (ci === p.length) { del = true; timer = setTimeout(type, 2600); return; }
+      } else {
+        el.textContent = p.slice(0, --ci);
+        if (ci === 0) { del = false; pi = (pi+1) % phrases.length; timer = setTimeout(type, 350); return; }
+      }
+      timer = setTimeout(type, del ? 20 : 46);
+    }
+    timer = setTimeout(type, 700);
+    return () => clearTimeout(timer);
+  }, []);
+
   function startVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { alert('Voice not supported in this browser.'); return; }
@@ -808,29 +835,27 @@ export default function Fred() {
 
       {/* TASTE */}
       <div className={`screen ${screen==='taste'?'active':''}`}>
-        <div className="taste-wrap">
-          <div className="taste-logo">
-            Fred{user && <span className="fred-online-dot"/>}
+        <div className="taste-poster">
+          <div className="taste-topbar">
+            <div className="taste-logo">Fred{user && <span className="fred-online-dot"/>}</div>
+            <div className="taste-tagline">Your film friend</div>
           </div>
-          <div className="taste-slogan">Your film friend</div>
-          <div className="taste-question">
-            What are you<br />
-            <strong>in the mood for?</strong>
-          </div>
-          <div className="t-divider" />
-          <div className="mood-list">
-            {MOODS.map((m, i) => (
-              <div key={m.value} className={`mood-item ${moods.includes(m.value)?'on':''}`}
-                onClick={() => toggleMood(m.value)}>
-                <span className="mood-num">0{i+1}</span>
-                <span className="mood-name">{m.label}</span>
-                <span className="mood-check">
-                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor"><polyline points="2,6 5,9 10,3"/></svg>
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="t-divider" />
+          <div className="taste-headline">FIND<br/>TONIGHT'S<br/>FILM.</div>
+          <div className="taste-typer" id="tasteTyper"></div>
+        </div>
+
+        <div className="mood-list">
+          {MOODS.map((m, i) => (
+            <div key={m.value} className={`mood-item ${moods.includes(m.value)?'on':''}`}
+              onClick={() => toggleMood(m.value)}>
+              <span className="mood-num">0{i+1}</span>
+              <span className="mood-name">{m.label}</span>
+              <span className="mood-dot"/>
+            </div>
+          ))}
+        </div>
+
+        <div className="taste-bottom">
           <div className="sec-label">Your platforms</div>
           <div className="platform-row">
             {PLATFORMS.map(p => (
@@ -838,7 +863,6 @@ export default function Fred() {
                 onClick={() => togglePlatform(p)}>{p}</div>
             ))}
           </div>
-          <div className="t-divider" />
           <LetterboxdUpload onProfileLoaded={profile => setTasteProfile(profile)} />
           <button className="taste-cta" onClick={loadPicks}>Fred's picks</button>
         </div>
