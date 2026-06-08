@@ -925,9 +925,16 @@ export default function Fred() {
             </button>
           </div>
         </div>
-        <div className="tonight-count">
-          2 films · 1 series
-          {tasteProfile && <span className="taste-badge">↑ Letterboxd</span>}
+        <div className="tonight-mood-header">
+          <div className="tonight-mood-label">
+            {moods.length > 0
+              ? moods.map(m => m.toUpperCase()).join(' + ') + ' PICKS'
+              : 'TONIGHT'S PICKS'}
+          </div>
+          <div className="tonight-count-sub">
+            2 films · 1 series
+            {tasteProfile && <span className="taste-badge">↑ Letterboxd</span>}
+          </div>
         </div>
         <div className="picks-wrap">
           {loading && (
