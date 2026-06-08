@@ -571,21 +571,37 @@ export default function Fred() {
         const fname = 'fred-' + (pick.title||'pick').replace(/[^a-z0-9]/gi,'-').toLowerCase() + '.png';
         const file = new File([blob], fname, { type: 'image/png' });
         try {
-          // Text feels like a message from Fred — short, direct, no marketing
-          const platform = pick.platform || 'streaming';
+          // Deep links to the film on each platform
+          const t = encodeURIComponent(pick.title || '');
+          const platformLinks = {
+            'Netflix':          `https://www.netflix.com/search?q=${t}`,
+            'Prime Video':      `https://www.amazon.com/s?k=${t}&i=instant-video`,
+            'Amazon Prime Video': `https://www.amazon.com/s?k=${t}&i=instant-video`,
+            'Hulu':             `https://www.hulu.com/search?query=${t}`,
+            'Max':              `https://play.max.com/search?q=${t}`,
+            'Apple TV+':        `https://tv.apple.com/search?term=${t}`,
+            'Disney+':          `https://www.disneyplus.com/search/${t}`,
+            'Peacock':          `https://www.peacocktv.com/search?q=${t}`,
+            'Paramount+':       `https://www.paramountplus.com/search/?q=${t}`,
+            'Criterion Channel':`https://www.criterionchannel.com/search#stq=${t}`,
+            'Mubi':             `https://mubi.com/search/${t}`,
+          };
+          const platform = pick.platform || '';
+          const watchUrl = platformLinks[platform] || `https://www.google.com/search?q=${t}+streaming+watch+online`;
+
           const year = pick.year ? ` (${pick.year})` : '';
           const rating = pick.rating ? ` · ${pick.rating}/10` : '';
           const note = pick.fred_note ? pick.fred_note.replace(/^"|"$/g, '') : '';
           const shareText = [
             `${pick.title}${year}${rating}`,
             note ? `"${note}"` : '',
-            `On ${platform} — fred-psi.vercel.app`,
+            `Watch on ${platform || 'streaming'}`,
           ].filter(Boolean).join('\n\n');
 
           if (navigator.share && navigator.canShare({ files: [file] })) {
-            await navigator.share({ files: [file], title: pick.title, text: shareText });
+            await navigator.share({ files: [file], title: pick.title, text: shareText, url: watchUrl });
           } else if (navigator.share) {
-            await navigator.share({ title: pick.title, text: shareText, url: 'https://fred-psi.vercel.app' });
+            await navigator.share({ title: pick.title, text: shareText, url: watchUrl });
           } else {
             const url = URL.createObjectURL(blob);
             Object.assign(document.createElement('a'), { href: url, download: fname }).click();
