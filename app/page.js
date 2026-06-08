@@ -307,7 +307,8 @@ export default function Fred() {
   const [authEmail,     setAuthEmail]     = useState('');
   const [authSent,      setAuthSent]      = useState(false);
   const [authLoading,   setAuthLoading]   = useState(false);
-  const chatRef      = useRef(null);
+  const chatRef       = useRef(null);
+  const seenPickIds   = useRef(new Set()); // accumulates all shown pick IDs across refreshes
   const searchRef    = useRef(null);
   const [searchQuery,   setSearchQuery]   = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -333,7 +334,10 @@ export default function Fred() {
       const res  = await fetch(`/api/picks?${params}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setPicks(data.picks || []);
+      const newPicks = data.picks || [];
+      // Track all shown IDs so refreshes never repeat
+      newPicks.forEach(p => seenPickIds.current.add(p.tmdb_id || p.id));
+      setPicks(newPicks);
     } catch (e) {
       setError(e.message || "Fred couldn't connect. Try again.");
     } finally { setLoading(false); }
@@ -372,6 +376,8 @@ export default function Fred() {
       setShowAuthModal(true);
       return;
     }
+    // Reset seen IDs on fresh search — new mood/platform = new slate
+    seenPickIds.current = new Set();
     go('tonight');
     fetchPicks(platforms, moods, tasteProfile, watched);
   }
@@ -800,8 +806,11 @@ export default function Fred() {
       setPullRefreshing(true);
       setPullDist(0);
       pullStartY.current = null;
-      const currentlyShown = picks.map(p => ({ id: p.tmdb_id || p.id }));
-      await fetchPicks(platforms, moods, tasteProfile, [...watched, ...currentlyShown]);
+      const allSeen = [
+        ...watched,
+        ...[...seenPickIds.current].map(id => ({ id })),
+      ];
+      await fetchPicks(platforms, moods, tasteProfile, allSeen);
       setPullRefreshing(false);
     } else {
       setPullDist(0);
@@ -901,8 +910,11 @@ export default function Fred() {
             <button
               onClick={() => {
                 if (loading || pullRefreshing) return;
-                const currentlyShown = picks.map(p => ({ id: p.tmdb_id || p.id }));
-                fetchPicks(platforms, moods, tasteProfile, [...watched, ...currentlyShown]);
+                const allSeen = [
+                  ...watched,
+                  ...[...seenPickIds.current].map(id => ({ id })),
+                ];
+                fetchPicks(platforms, moods, tasteProfile, allSeen);
               }}
               disabled={loading || pullRefreshing}
               style={{
