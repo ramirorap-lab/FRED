@@ -474,49 +474,135 @@ export default function Fred() {
 
   const [sharingId, setSharingId] = useState(null);
 
-  async function sharePick(pick, cardEl) {
+  async function sharePick(pick) {
     if (sharingId) return;
-    setSharingId(pick.id || pick.tmdb_id);
+    const pickId = pick.id || pick.tmdb_id;
+    setSharingId(pickId);
+
     try {
-      // Dynamically import html2canvas
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(cardEl, {
-        backgroundColor: '#1A1A1D',
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-      });
+      const W = 640, H = 360;
+      const canvas = document.createElement('canvas');
+      canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext('2d');
 
-      canvas.toBlob(async (blob) => {
-        const file = new File([blob], `fred-${(pick.title || 'pick').replace(/\s+/g,'-').toLowerCase()}.png`, { type: 'image/png' });
-        const shareData = {
-          title: pick.title,
-          text: `${pick.title} — recommended by Fred
-fred-psi.vercel.app`,
-          files: [file],
-        };
+      const drawCard = (img) => {
+        ctx.fillStyle = '#0E0E0F';
+        ctx.fillRect(0, 0, W, H);
+        if (img) {
+          ctx.drawImage(img, 0, 0, W, H);
+          ctx.fillStyle = 'rgba(0,0,0,0.62)';
+          ctx.fillRect(0, 0, W, H);
+        }
+        const grad = ctx.createLinearGradient(0, H * 0.3, 0, H);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.96)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
 
+        // Rating
+        if (pick.rating) {
+          ctx.fillStyle = 'rgba(0,0,0,0.75)';
+          ctx.beginPath();
+          ctx.roundRect(W - 72, 16, 56, 42, 4);
+          ctx.fill();
+          ctx.fillStyle = '#F5C518';
+          ctx.font = 'bold 18px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText(pick.rating, W - 44, 36);
+          ctx.fillStyle = '#888';
+          ctx.font = '10px Arial';
+          ctx.fillText('TMDB', W - 44, 50);
+        }
+
+        // Title
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 30px Georgia';
+        const words = (pick.title || '').split(' ');
+        let line = ''; const titleLines = [];
+        for (const w of words) {
+          const test = line ? line + ' ' + w : w;
+          if (ctx.measureText(test).width > W - 48 && line) { titleLines.push(line); line = w; }
+          else line = test;
+        }
+        titleLines.push(line);
+        const noteLines = [];
+        if (pick.fred_note) {
+          ctx.font = 'italic 14px Georgia';
+          const note = (pick.fred_note || '').replace(/^"|"$/g, '');
+          const nWords = note.split(' ');
+          let nLine = '';
+          for (const w of nWords) {
+            const test = nLine ? nLine + ' ' + w : w;
+            if (ctx.measureText(test).width > W - 48 && nLine) { noteLines.push(nLine); nLine = w; }
+            else nLine = test;
+          }
+          noteLines.push(nLine);
+        }
+        const totalH = titleLines.slice(0,2).length * 38 + (noteLines.slice(0,2).length * 20) + 16;
+        let y = H - totalH - 28;
+        ctx.font = 'bold 30px Georgia';
+        ctx.fillStyle = '#fff';
+        titleLines.slice(0, 2).forEach(l => { ctx.fillText(l, 24, y); y += 38; });
+        if (noteLines.length) {
+          y += 8;
+          ctx.font = 'italic 14px Georgia';
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          noteLines.slice(0, 2).forEach(l => { ctx.fillText(l, 24, y); y += 20; });
+        }
+
+        // Platform + Fred branding
+        ctx.font = '11px Arial';
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.textAlign = 'left';
+        ctx.fillText((pick.platform || '').toUpperCase(), 24, H - 16);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#E50914';
+        ctx.font = 'bold 13px Georgia';
+        ctx.fillText('FRED', W - 24, H - 16);
+      };
+
+      const imgSrc = (pick.backdrop || pick.poster)
+        ? 'https://image.tmdb.org/t/p/w780' + (pick.backdrop || pick.poster)
+        : null;
+
+      const finishShare = async () => {
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+        if (!blob) { setSharingId(null); return; }
+        const fname = 'fred-' + (pick.title||'pick').replace(/[^a-z0-9]/gi,'-').toLowerCase() + '.png';
+        const file = new File([blob], fname, { type: 'image/png' });
         try {
-          if (navigator.canShare?.(shareData)) {
-            await navigator.share(shareData);
+          if (navigator.share && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: pick.title, text: pick.title + ' — fred-psi.vercel.app' });
+          } else if (navigator.share) {
+            await navigator.share({ title: pick.title, text: pick.title + ' — fred-psi.vercel.app', url: 'https://fred-psi.vercel.app' });
           } else {
-            // Fallback: download the image
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = file.name;
-            a.click();
+            Object.assign(document.createElement('a'), { href: url, download: fname }).click();
             URL.revokeObjectURL(url);
           }
         } catch (e) {
-          if (e.name !== 'AbortError') console.error('Share failed:', e);
-        } finally {
-          setSharingId(null);
+          if (e.name !== 'AbortError') {
+            const url = URL.createObjectURL(blob);
+            Object.assign(document.createElement('a'), { href: url, download: fname }).click();
+            URL.revokeObjectURL(url);
+          }
         }
-      }, 'image/png');
+        setSharingId(null);
+      };
+
+      if (imgSrc) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => { drawCard(img); finishShare(); };
+        img.onerror = () => { drawCard(null); finishShare(); };
+        img.src = imgSrc;
+      } else {
+        drawCard(null);
+        finishShare();
+      }
     } catch (e) {
-      console.error('html2canvas failed:', e);
+      console.error('Share failed:', e);
       setSharingId(null);
     }
   }
@@ -883,7 +969,7 @@ fred-psi.vercel.app`,
                         <I.External /> Open
                       </a>
                       <button className={`ca ${sharingId === (pick.id || pick.title) ? 'ca-sharing' : ''}`}
-                        onClick={e => sharePick(pick, e.currentTarget.closest('.card'))}>
+                        onClick={() => sharePick(pick)}>
                         {sharingId === (pick.id || pick.title)
                           ? <div className="spinner" style={{width:'11px',height:'11px',borderWidth:'1.5px'}}/>
                           : <I.Share />}
