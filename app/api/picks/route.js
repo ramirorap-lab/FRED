@@ -93,8 +93,7 @@ async function rerankWithHaiku(candidates, moods, apiKey) {
 
   const list = candidates.slice(0, 15).map((f, i) =>
     `${i + 1}. ${f.title || f.name} (${(f.release_date || f.first_air_date || '').slice(0,4)}) — ${f.overview?.slice(0, 120) || ''}`
-  ).join('
-');
+  ).join('\n');
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
