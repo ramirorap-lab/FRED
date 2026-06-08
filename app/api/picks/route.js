@@ -82,13 +82,14 @@ const BLOCKLIST = new Set([
   398978, // The Christmas Chronicles
   823464, // Godzilla x Kong
   698507, // Predator: Badlands
+  680796, // Rebel Moon Part One
+  795359, // Rebel Moon Part Two
   // Add more as you encounter them — find TMDB ID at themoviedb.org
 ]);
 
-// ── Curated documentary list — TMDB IDs ──
-// Hand-picked from RT, Netflix, Hulu top lists — no TMDB genre tagging issues
+// ── Curated documentary list — verified TMDB IDs only ──
+// Only IDs we are 100% certain about — no guesses
 const DOCUMENTARY_IDS = [
-  // All-time acclaimed
   9947,   // Man on Wire (2008)
   33223,  // Exit Through the Gift Shop (2010)
   75780,  // Searching for Sugar Man (2012)
@@ -103,33 +104,20 @@ const DOCUMENTARY_IDS = [
   614930, // Summer of Soul (2021)
   615904, // My Octopus Teacher (2020)
   550988, // The Rescue (2021)
-  803196, // All That Breathes (2022)
   843241, // Fire of Love (2022)
   897153, // Navalny (2022)
   934632, // All the Beauty and the Bloodshed (2022)
-  502170, // The Velvet Underground (2021)
   395834, // Won't You Be My Neighbor? (2018)
   109418, // Stories We Tell (2012)
   670,    // Bowling for Columbine (2002)
   14819,  // Anvil! The Story of Anvil (2008)
-  // Recent highly rated (2023-2025)
-  961268, // Still: A Michael J. Fox Movie (2023) — Apple TV+, 8.1 IMDB
-  557600, // Minding the Gap (2018) — Hulu, 100% RT
-  1100782,// Daughters (2024) — Netflix, Sundance winner
-  1149175,// Sly Lives! (2025) — Questlove, Hulu
-  1043816,// All That Breathes (already above)
-  1086747,// The Deepest Breath (2023) — Netflix
-  1064687,// Unknown: Cave of Bones (2023) — Netflix
-  1023945,// Beckham (2023) — Netflix series
-  976893, // American Symphony (2023) — Netflix
-  1005806,// The Greatest Night in Pop (2024) — Netflix
-  1096257,// What Jennifer Did (2024) — Netflix
-  900667, // Stutz (2022) — Netflix, Jonah Hill
-  1079091,// Body of Lies (skip — that's Brutalist)
+  557600, // Minding the Gap (2018)
+  900667, // Stutz (2022) — Netflix
+  803196, // All That Breathes (2022)
+  502170, // The Velvet Underground (2021)
 ];
 
-// Clean the list — remove any non-numbers
-const VALID_DOCUMENTARY_IDS = DOCUMENTARY_IDS.filter(id => typeof id === 'number' && id < 2000000);
+const VALID_DOCUMENTARY_IDS = DOCUMENTARY_IDS;
 
 // ── Haiku reranker — picks best film from candidates given mood context ──
 async function rerankWithHaiku(candidates, moods, apiKey) {
@@ -285,16 +273,16 @@ async function fetchCuratedDoc(exclude, platforms, tmdbToken) {
     } catch { continue; }
   }
 
-  // Fallback: return best doc regardless of platform
-  for (const id of shuffled.slice(0, 3)) {
+  // Fallback: return best doc regardless of platform — still from curated list only
+  for (const id of shuffled.slice(0, 5)) {
     try {
       const res  = await fetch(`https://api.themoviedb.org/3/movie/${id}?language=en-US`,
         { headers: { Authorization: `Bearer ${tmdbToken}` } });
       const data = await res.json();
-      if (data.id) return data;
+      if (data.id && !BLOCKLIST.has(data.id)) return data;
     } catch { continue; }
   }
-  return null;
+  return null; // Return null — never fall through to random TMDB results
 }
 
 async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries, page = 1, moods = [] }, tmdbToken) {
