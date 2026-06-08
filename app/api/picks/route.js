@@ -87,34 +87,33 @@ const BLOCKLIST = new Set([
   // Add more as you encounter them — find TMDB ID at themoviedb.org
 ]);
 
-// ── Curated documentary list — verified TMDB IDs only ──
-// Only IDs we are 100% certain about — no guesses
+// ── Curated documentary list — all IDs verified from TMDB URLs ──
 const DOCUMENTARY_IDS = [
-  9947,   // Man on Wire (2008)
-  33223,  // Exit Through the Gift Shop (2010)
-  75780,  // Searching for Sugar Man (2012)
-  27905,  // Grizzly Man (2005)
-  76864,  // The Act of Killing (2012)
-  293660, // Amy (2015)
-  264644, // The Look of Silence (2014)
-  355008, // 13th (2016)
-  480530, // Free Solo (2018)
-  522016, // Apollo 11 (2019)
-  531428, // Flee (2021)
-  614930, // Summer of Soul (2021)
-  615904, // My Octopus Teacher (2020)
-  550988, // The Rescue (2021)
-  843241, // Fire of Love (2022)
-  897153, // Navalny (2022)
-  934632, // All the Beauty and the Bloodshed (2022)
-  395834, // Won't You Be My Neighbor? (2018)
-  109418, // Stories We Tell (2012)
-  670,    // Bowling for Columbine (2002)
-  14819,  // Anvil! The Story of Anvil (2008)
-  557600, // Minding the Gap (2018)
-  900667, // Stutz (2022) — Netflix
-  803196, // All That Breathes (2022)
-  502170, // The Velvet Underground (2021)
+  9947,    // Man on Wire (2008)
+  33223,   // Exit Through the Gift Shop (2010)
+  75780,   // Searching for Sugar Man (2012)
+  27905,   // Grizzly Man (2005)
+  76864,   // The Act of Killing (2012)
+  293660,  // Amy (2015)
+  264644,  // The Look of Silence (2014)
+  355008,  // 13th (2016)
+  480530,  // Free Solo (2018)
+  522016,  // Apollo 11 (2019)
+  531428,  // Flee (2021)
+  614930,  // Summer of Soul (2021)
+  615904,  // My Octopus Teacher (2020)
+  550988,  // The Rescue (2021)
+  913823,  // Fire of Love (2022) — verified
+  926676,  // Navalny (2022) — verified
+  1004663, // All the Beauty and the Bloodshed (2022) — verified
+  913838,  // All That Breathes (2022) — verified
+  395834,  // Won't You Be My Neighbor? (2018)
+  109418,  // Stories We Tell (2012)
+  670,     // Bowling for Columbine (2002)
+  14819,   // Anvil! The Story of Anvil (2008)
+  557600,  // Minding the Gap (2018)
+  900667,  // Stutz (2022) — Netflix
+  502170,  // The Velvet Underground (2021)
 ];
 
 const VALID_DOCUMENTARY_IDS = DOCUMENTARY_IDS;
