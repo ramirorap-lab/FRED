@@ -69,6 +69,7 @@ const I = {
   Chat:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   Play:     () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>,
   Eye:      () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+  Share:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>,
 };
 
 function Poster({ poster, title, bg, useBackdrop }) {
@@ -471,6 +472,55 @@ export default function Fred() {
     }
   }
 
+  const [sharingId, setSharingId] = useState(null);
+
+  async function sharePick(pick, cardEl) {
+    if (sharingId) return;
+    setSharingId(pick.id || pick.tmdb_id);
+    try {
+      // Dynamically import html2canvas
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(cardEl, {
+        backgroundColor: '#1A1A1D',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+      });
+
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], `fred-${(pick.title || 'pick').replace(/\s+/g,'-').toLowerCase()}.png`, { type: 'image/png' });
+        const shareData = {
+          title: pick.title,
+          text: `${pick.title} — recommended by Fred
+fred-psi.vercel.app`,
+          files: [file],
+        };
+
+        try {
+          if (navigator.canShare?.(shareData)) {
+            await navigator.share(shareData);
+          } else {
+            // Fallback: download the image
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = file.name;
+            a.click();
+            URL.revokeObjectURL(url);
+          }
+        } catch (e) {
+          if (e.name !== 'AbortError') console.error('Share failed:', e);
+        } finally {
+          setSharingId(null);
+        }
+      }, 'image/png');
+    } catch (e) {
+      console.error('html2canvas failed:', e);
+      setSharingId(null);
+    }
+  }
+
   async function runSearch(q) {
     const query = (q || searchQuery).trim();
     if (!query) return;
@@ -832,6 +882,13 @@ export default function Fred() {
                       <a className="ca" href={platformUrl(pick.platform, pick.title)} target="_blank" rel="noopener noreferrer">
                         <I.External /> Open
                       </a>
+                      <button className={`ca ${sharingId === (pick.id || pick.title) ? 'ca-sharing' : ''}`}
+                        onClick={e => sharePick(pick, e.currentTarget.closest('.card'))}>
+                        {sharingId === (pick.id || pick.title)
+                          ? <div className="spinner" style={{width:'11px',height:'11px',borderWidth:'1.5px'}}/>
+                          : <I.Share />}
+                        Share
+                      </button>
                     </div>
                   </div>
                 </div>
