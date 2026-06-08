@@ -22,12 +22,30 @@ html, body {
   position: relative;
 }
 
-/* Desktop — centered phone-width column with subtle frame */
+/* Desktop — centered fixed-width column */
 @media (min-width: 600px) {
-  body { background: #080808; }
+  html, body { background: #080808; height: 100%; }
+  body { display: flex; justify-content: center; }
   .app {
+    width: 430px;
+    min-width: 430px;
+    max-width: 430px;
     min-height: 100dvh;
-    box-shadow: 0 0 0 .5px #1a1a1a;
+    box-shadow: 0 0 0 .5px #1a1a1a, 0 0 60px rgba(0,0,0,.8);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .nav {
+    left: 50%;
+    transform: translateX(-50%);
+    width: 430px;
+    max-width: 430px;
+  }
+  .chat-bar {
+    left: 50%;
+    transform: translateX(-50%);
+    width: 430px;
+    max-width: 430px;
   }
 }
 
@@ -192,6 +210,26 @@ html, body {
   font-size: 9px; color: #333;
   letter-spacing: .12em; text-transform: uppercase;
   font-weight: 500;
+}
+.tonight-mood-header {
+  padding: 16px 24px 4px;
+}
+.tonight-mood-label {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 28px;
+  font-weight: 400;
+  color: #fff;
+  letter-spacing: -.01em;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.tonight-count-sub {
+  font-size: 9px;
+  color: #333;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
 }
 /* ── PICK HEADER ── */
 .pick-header {
