@@ -46,25 +46,54 @@ html, body {
 .nv.active { color: var(--red); }
 .nv svg { width: 19px; height: 19px; stroke-width: 1.5; }
 /* ── TASTE SCREEN ── */
-.taste-wrap { padding: 40px 24px 20px; }
+.taste-poster {
+  background: #E50914;
+  padding: 36px 24px 32px;
+  flex-shrink: 0;
+}
+.taste-topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
 .taste-logo {
-  font-family: var(--font-display), sans-serif;
-  font-weight: 900; font-size: 54px;
-  color: #fff; letter-spacing: -.02em;
-  line-height: 1; margin-bottom: 6px;
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 42px;
+  font-weight: 400;
+  color: #000;
+  letter-spacing: -.02em;
+  line-height: 1;
 }
-.taste-slogan {
-  font-size: 10px; letter-spacing: .2em;
-  text-transform: uppercase; color: var(--dim);
-  margin-bottom: 36px;
+.taste-tagline {
+  font-size: 9px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: rgba(0,0,0,0.4);
+  font-weight: 500;
 }
-.taste-question {
-  font-family: var(--font-display), sans-serif;
-  font-size: 22px; font-weight: 400;
-  font-style: italic; color: #666;
-  line-height: 1.35; margin-bottom: 32px;
+.taste-headline {
+  font-family: 'Inter', sans-serif;
+  font-weight: 900;
+  font-size: 64px;
+  line-height: .88;
+  letter-spacing: -.04em;
+  color: #000;
+  text-transform: uppercase;
+  margin-bottom: 28px;
 }
-.taste-question strong { color: #fff; font-style: normal; font-weight: 700; }
+.taste-typer {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-style: italic;
+  font-size: 13px;
+  color: rgba(0,0,0,0.5);
+  min-height: 18px;
+  letter-spacing: .01em;
+}
+.taste-bottom {
+  padding: 20px 24px 32px;
+  border-top: .5px solid #111;
+}
 .t-divider { height: .5px; background: #161618; margin-bottom: 24px; }
 .sec-label {
   font-size: 9px; letter-spacing: .2em;
@@ -78,54 +107,59 @@ html, body {
   font-family: 'Inter', var(--font-body), sans-serif; user-select: none;
 }
 .plat-pill.on { border-color: var(--red); color: #fff; background: rgba(229,9,20,.08); }
-.mood-list { margin-bottom: 28px; }
+.mood-list { display: flex; flex-direction: column; }
 .mood-item {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 13px 0; border-bottom: .5px solid #111;
-  cursor: pointer; transition: all .15s; user-select: none;
+  display: flex; align-items: center;
+  padding: 0 24px;
+  height: 58px;
+  border-bottom: .5px solid #0f0f0f;
+  cursor: pointer; transition: background .12s;
+  gap: 14px; user-select: none;
 }
-.mood-item:first-child { border-top: .5px solid #111; }
+.mood-item:first-child { border-top: .5px solid #0f0f0f; }
+.mood-item.on { background: #0f0f0f; }
 .mood-num {
-  font-family: var(--font-display), sans-serif;
-  font-size: 10px; color: #2a2a2a; width: 22px; font-style: italic;
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 9px; color: #222; width: 16px;
+  font-style: italic; flex-shrink: 0;
+  transition: color .15s;
 }
 .mood-name {
-  font-family: var(--font-display), sans-serif;
-  font-size: 25px; font-weight: 700; color: #444;
-  flex: 1; padding: 0 12px; transition: color .15s;
-  line-height: 1; letter-spacing: -.01em;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700; font-size: 22px;
+  letter-spacing: -.02em; color: #222;
+  flex: 1; text-transform: uppercase;
+  transition: color .15s; line-height: 1;
 }
 .mood-item.on .mood-name { color: #fff; }
-.mood-item.on .mood-num  { color: #444; }
-.mood-check {
-  width: 17px; height: 17px; border: .5px solid #222; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  transition: all .15s; flex-shrink: 0;
+.mood-item.on .mood-num  { color: #555; }
+.mood-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 1px solid #1e1e1e; flex-shrink: 0;
+  transition: all .15s;
 }
-.mood-check svg { display: none; }
-.mood-item.on .mood-check { background: var(--red); border-color: var(--red); }
+.mood-item.on .mood-dot {
+  background: #E50914; border-color: #E50914;
+  box-shadow: 0 0 0 3px rgba(229,9,20,.15);
+}
 /* ── FRED'S PICKS CTA ── */
 .taste-cta {
-  width: 100%; padding: 15px 0;
-  background: rgba(120, 15, 15, 0.15);
-  border: 1px solid rgba(180, 40, 40, 0.55);
-  border-radius: 4px;
-  font-family: 'DM Serif Display', Georgia, serif;
-  font-style: italic;
-  font-size: 16px;
-  font-weight: 400;
-  letter-spacing: .03em;
-  color: #d4d0cb;
+  width: 100%; padding: 16px 0;
+  background: #E50914;
+  border: none;
+  border-radius: 3px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #000;
   cursor: pointer;
-  transition: background .2s ease, border-color .2s ease, color .2s ease;
-  margin-bottom: 32px;
+  transition: opacity .15s;
+  margin-bottom: 0;
 }
 .taste-cta:hover,
-.taste-cta:active {
-  background: rgba(140, 20, 20, 0.25);
-  border-color: rgba(180, 40, 40, 0.75);
-  color: #e0dcd7;
-}
+.taste-cta:active { opacity: .88; }
 /* ── TOPBAR ── */
 .topbar {
   display: flex; align-items: center;
