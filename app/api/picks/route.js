@@ -122,8 +122,8 @@ async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries
   });
 
   if (isSmart && !recentOnly) {
-    // Smart: use keywords OR across smart genres — films that signal intelligence
-    params.set('with_keywords', SMART_KEYWORDS);
+    // Smart: high-rated films across cerebral genres — no keyword filter
+    // (keyword + genre combo can return 0 results for small platforms)
     params.set('with_genres', SMART_GENRES.join('|'));
   } else if (resolvedGenreIds?.length) {
     params.set('with_genres', resolvedGenreIds.join(isCombo ? ',' : '|'));
@@ -322,7 +322,7 @@ export async function GET(req) {
     return NextResponse.json({ picks: enriched });
 
   } catch (err) {
-    console.error('Picks error:', err);
-    return NextResponse.json({ error: 'Could not fetch picks' }, { status: 500 });
+    console.error('Picks error:', err.message, err.stack);
+    return NextResponse.json({ error: err.message || 'Could not fetch picks' }, { status: 500 });
   }
 }
