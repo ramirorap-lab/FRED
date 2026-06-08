@@ -254,10 +254,11 @@ async function getDirectorPick(moods, exclude = [], supabase, tmdbToken) {
 // ── Pick a curated documentary available on user platforms ──
 async function fetchCuratedDoc(exclude, platforms, tmdbToken) {
   const excludeSet = new Set(exclude || []);
-  const providerIds = platforms.map(p => ({
+  const PROVIDER_MAP = {
     'Netflix': '8', 'Prime Video': '9', 'Hulu': '15',
     'Max': '1899', 'Apple TV+': '350', 'Disney+': '337', 'Peacock': '386',
-  }[p]).filter(Boolean);
+  };
+  const providerIds = platforms.map(p => PROVIDER_MAP[p]).filter(Boolean);
 
   // Shuffle the list so we don't always get the same doc
   const shuffled = [...VALID_DOCUMENTARY_IDS]
