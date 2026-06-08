@@ -356,12 +356,16 @@ export async function GET(req) {
     const smartSolo = moods.length === 1 && moods[0] === 'smart';
     const seriesGenreIds = smartSolo ? SMART_GENRES : genreIds;
 
-    // Fetch all 4 slot types in parallel
-    const [allTimeResults, recentResults, seriesResults, directorPickRaw] = await Promise.all([
+    // Fetch all slot types in parallel
+    const [allTimeResults, recentResults, seriesResults, directorPickRaw, docResults] = await Promise.all([
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: false, isSeries: false, moods, page }, tmdbToken),
       tmdbDiscover({ genreIds, platforms, exclude, recentOnly: true,  isSeries: false, moods, page: 1 }, tmdbToken),
       tmdbDiscover({ genreIds: seriesGenreIds, platforms, exclude, recentOnly: false, isSeries: true, moods, page }, tmdbToken),
       getDirectorPick(moods, exclude, supabase, tmdbToken),
+      // Documentary slot — only for smart mood
+      smartSolo
+        ? tmdbDiscover({ genreIds: [99], platforms, exclude, recentOnly: false, isSeries: false, moods: [], page }, tmdbToken)
+        : Promise.resolve([]),
     ]);
 
     // SLOT 1 — Fred's Pick: best rated for mood, Haiku reranked
@@ -372,15 +376,27 @@ export async function GET(req) {
 
     const usedIds = new Set([film1?.id, directorPickRaw?.id].filter(Boolean));
 
-    // SLOT 2 — Director's Pick: from Supabase director_picks
+    // SLOT 2 — Director's Pick from Supabase
+    console.log('Director pick raw:', directorPickRaw ? `${directorPickRaw.title} (${directorPickRaw.director_name})` : 'null');
     const directorPick = directorPickRaw && directorPickRaw.id !== film1?.id
       ? directorPickRaw : null;
 
-    // SLOT 3 — Recent: best 2025/2026 film not already used
+    // SLOT 3 — Smart: documentary | Others: recent 2025/2026 only if high quality
     const alreadyHasAnimation = isAnimated(film1);
-    const film3 = recentResults.find(r =>
-      !usedIds.has(r.id) && !(alreadyHasAnimation && isAnimated(r))
-    ) || recentResults.find(r => !usedIds.has(r.id)) || null;
+    let film3 = null;
+    if (smartSolo && docResults.length) {
+      // For smart: pick best documentary not already used
+      film3 = docResults.find(r => !usedIds.has(r.id)) || null;
+    } else {
+      // For other moods: only show recent if vote_average >= 7.0 AND vote_count >= 100
+      // This prevents weak 2025 films from appearing just because they're new
+      film3 = recentResults.find(r =>
+        !usedIds.has(r.id) &&
+        !(alreadyHasAnimation && isAnimated(r)) &&
+        r.vote_average >= 7.0 &&
+        r.vote_count >= 100
+      ) || null;
+    }
 
     // SLOT 4 — Series: best series for mood, Haiku reranked
     const seriesCandidates = seriesResults.filter(r =>
@@ -390,13 +406,14 @@ export async function GET(req) {
       ? await rerankWithHaiku(seriesCandidates.slice(0, 15), moods, apiKey)
       : seriesCandidates[0] || null;
 
-    // Build ordered slots: Fred's Pick, Director's Pick, Recent, Series
+    // Build ordered slots: Fred's Pick, Director's Pick, Documentary/Recent, Series
     const slots = [film1, directorPick, film3, series1].filter(Boolean);
 
     const enriched = await Promise.all(slots.map(async (film, i) => {
       const isDirector = film === directorPick;
       const isSeries   = film === series1;
-      const isRecent   = (film.release_date || '').slice(0, 4) >= '2025' && film === film3;
+      const isDoc      = smartSolo && film === film3 && !isDirector && !isSeries;
+      const isRecent   = !isDoc && film === film3 && (film.release_date || '').slice(0, 4) >= '2025';
 
       const [details, fredNote] = await Promise.all([
         getDetails(film.id, isSeries, tmdbToken),
@@ -405,6 +422,7 @@ export async function GET(req) {
 
       let pick_type = 'safe';
       if (isDirector) pick_type = 'wildcard';
+      else if (isDoc)    pick_type = 'documentary';
       else if (isRecent) pick_type = 'recent';
       else if (isSeries) pick_type = 'series';
 
