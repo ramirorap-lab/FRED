@@ -480,7 +480,8 @@ export default function Fred() {
     setSharingId(pickId);
 
     try {
-      const W = 640, H = 360;
+      // Portrait card 540x960 — perfect for Stories/WhatsApp
+      const W = 540, H = 960, PAD = 40;
       const canvas = document.createElement('canvas');
       canvas.width = W; canvas.height = H;
       const ctx = canvas.getContext('2d');
@@ -488,84 +489,76 @@ export default function Fred() {
       const drawCard = (img) => {
         ctx.fillStyle = '#0E0E0F';
         ctx.fillRect(0, 0, W, H);
-        if (img) {
-          ctx.drawImage(img, 0, 0, W, H);
-          ctx.fillStyle = 'rgba(0,0,0,0.62)';
-          ctx.fillRect(0, 0, W, H);
-        }
-        const grad = ctx.createLinearGradient(0, H * 0.3, 0, H);
-        grad.addColorStop(0, 'rgba(0,0,0,0)');
-        grad.addColorStop(1, 'rgba(0,0,0,0.96)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, W, H);
 
-        // Rating
-        if (pick.rating) {
-          ctx.fillStyle = 'rgba(0,0,0,0.75)';
-          ctx.beginPath();
-          ctx.roundRect(W - 72, 16, 56, 42, 4);
-          ctx.fill();
-          ctx.fillStyle = '#F5C518';
-          ctx.font = 'bold 18px Arial';
-          ctx.textAlign = 'center';
-          ctx.fillText(pick.rating, W - 44, 36);
-          ctx.fillStyle = '#888';
-          ctx.font = '10px Arial';
-          ctx.fillText('TMDB', W - 44, 50);
+        if (img) {
+          const imgH = H * 0.58;
+          const scale = Math.max(W / img.width, imgH / img.height);
+          const iw = img.width * scale, ih = img.height * scale;
+          ctx.save();
+          ctx.beginPath(); ctx.rect(0, 0, W, imgH); ctx.clip();
+          ctx.drawImage(img, (W - iw) / 2, (imgH - ih) / 2, iw, ih);
+          ctx.restore();
+          const grad = ctx.createLinearGradient(0, imgH * 0.35, 0, imgH);
+          grad.addColorStop(0, 'rgba(14,14,15,0)');
+          grad.addColorStop(1, 'rgba(14,14,15,1)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, W, imgH);
         }
+
+        // Rating badge
+        if (pick.rating) {
+          ctx.fillStyle = 'rgba(0,0,0,0.8)';
+          ctx.beginPath(); ctx.roundRect(W - 82, 24, 62, 50, 6); ctx.fill();
+          ctx.fillStyle = '#F5C518'; ctx.font = 'bold 22px Arial'; ctx.textAlign = 'center';
+          ctx.fillText(pick.rating, W - 51, 48);
+          ctx.fillStyle = '#666'; ctx.font = '11px Arial';
+          ctx.fillText('TMDB', W - 51, 64);
+        }
+
+        let y = H * 0.58 + 16;
+
+        // FRED SAYS label
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 12px Arial'; ctx.fillStyle = '#E50914';
+        ctx.fillText('FRED SAYS WATCH THIS', PAD, y); y += 32;
 
         // Title
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 30px Georgia';
-        const words = (pick.title || '').split(' ');
-        let line = ''; const titleLines = [];
-        for (const w of words) {
-          const test = line ? line + ' ' + w : w;
-          if (ctx.measureText(test).width > W - 48 && line) { titleLines.push(line); line = w; }
-          else line = test;
+        ctx.font = 'bold 44px Georgia'; ctx.fillStyle = '#fff';
+        const wds = (pick.title || '').split(' ');
+        let ln = ''; const tLines = [];
+        for (const w of wds) {
+          const t = ln ? ln + ' ' + w : w;
+          if (ctx.measureText(t).width > W - PAD * 2 && ln) { tLines.push(ln); ln = w; } else ln = t;
         }
-        titleLines.push(line);
-        const noteLines = [];
+        tLines.push(ln);
+        tLines.slice(0, 2).forEach(l => { ctx.fillText(l, PAD, y); y += 54; });
+
+        // Note
         if (pick.fred_note) {
-          ctx.font = 'italic 14px Georgia';
+          y += 12;
+          ctx.font = 'italic 17px Georgia'; ctx.fillStyle = 'rgba(255,255,255,0.6)';
           const note = (pick.fred_note || '').replace(/^"|"$/g, '');
-          const nWords = note.split(' ');
-          let nLine = '';
-          for (const w of nWords) {
-            const test = nLine ? nLine + ' ' + w : w;
-            if (ctx.measureText(test).width > W - 48 && nLine) { noteLines.push(nLine); nLine = w; }
-            else nLine = test;
+          const nwds = note.split(' '); let nl = ''; const nLines = [];
+          for (const w of nwds) {
+            const t = nl ? nl + ' ' + w : w;
+            if (ctx.measureText(t).width > W - PAD * 2 && nl) { nLines.push(nl); nl = w; } else nl = t;
           }
-          noteLines.push(nLine);
-        }
-        const totalH = 18 + 10 + titleLines.slice(0,2).length * 38 + (noteLines.slice(0,2).length * 20) + 16;
-        let y = H - totalH - 28;
-
-        // "Fred says" label
-        ctx.font = '600 11px Arial';
-        ctx.fillStyle = 'rgba(229,9,20,0.9)';
-        ctx.fillText('FRED SAYS WATCH THIS', 24, y);
-        y += 22;
-
-        ctx.font = 'bold 30px Georgia';
-        ctx.fillStyle = '#fff';
-        titleLines.slice(0, 2).forEach(l => { ctx.fillText(l, 24, y); y += 38; });
-        if (noteLines.length) {
-          y += 8;
-          ctx.font = 'italic 14px Georgia';
-          ctx.fillStyle = 'rgba(255,255,255,0.6)';
-          noteLines.slice(0, 2).forEach(l => { ctx.fillText(l, 24, y); y += 20; });
+          nLines.push(nl);
+          nLines.slice(0, 3).forEach(l => { ctx.fillText(l, PAD, y); y += 26; });
         }
 
-        // Platform + Fred branding
-        ctx.font = '11px Arial';
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        // Bottom bar
+        const by = H - 52;
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(PAD, by); ctx.lineTo(W - PAD, by); ctx.stroke();
+        ctx.font = '12px Arial'; ctx.fillStyle = 'rgba(255,255,255,0.3)';
         ctx.textAlign = 'left';
-        ctx.fillText((pick.platform || '').toUpperCase(), 24, H - 16);
+        ctx.fillText((pick.platform || '').toUpperCase(), PAD, by + 24);
         ctx.textAlign = 'right';
-        ctx.fillStyle = '#E50914';
-        ctx.font = 'bold 13px Georgia';
-        ctx.fillText('FRED', W - 24, H - 16);
+        ctx.fillStyle = '#E50914'; ctx.font = 'bold 15px Georgia';
+        ctx.fillText('FRED', W - PAD, by + 24);
+        ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.font = '11px Arial';
+        ctx.fillText('fred-psi.vercel.app', W - PAD, by + 40);
       };
 
       const imgSrc = (pick.backdrop || pick.poster)
@@ -578,10 +571,12 @@ export default function Fred() {
         const fname = 'fred-' + (pick.title||'pick').replace(/[^a-z0-9]/gi,'-').toLowerCase() + '.png';
         const file = new File([blob], fname, { type: 'image/png' });
         try {
+          const shareUrl = 'https://fred-psi.vercel.app';
+          const shareText = `${pick.title} — watch it on ${pick.platform || 'streaming'}`;
           if (navigator.share && navigator.canShare({ files: [file] })) {
-            await navigator.share({ files: [file], title: pick.title, text: pick.title + ' — fred-psi.vercel.app' });
+            await navigator.share({ files: [file], title: pick.title, text: shareText, url: shareUrl });
           } else if (navigator.share) {
-            await navigator.share({ title: pick.title, text: pick.title + ' — fred-psi.vercel.app', url: 'https://fred-psi.vercel.app' });
+            await navigator.share({ title: pick.title, text: shareText, url: shareUrl });
           } else {
             const url = URL.createObjectURL(blob);
             Object.assign(document.createElement('a'), { href: url, download: fname }).click();
