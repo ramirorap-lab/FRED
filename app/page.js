@@ -3,14 +3,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// Lazy init — avoids prerender crash when env vars aren't available
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  );
-}
-const supabase = typeof window !== 'undefined' ? getSupabase() : null;
+// Only init Supabase when env vars are actually present
+const _sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const _sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = (typeof window !== 'undefined' && _sbUrl && _sbKey)
+  ? createClient(_sbUrl, _sbKey)
+  : null;
 
 const TMDB = 'https://image.tmdb.org/t/p/w500';
 const DEFAULT_PLATFORMS = ['Netflix', 'Prime Video'];
