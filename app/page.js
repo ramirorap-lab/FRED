@@ -1,6 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 const TMDB = 'https://image.tmdb.org/t/p/w500';
 const DEFAULT_PLATFORMS = ['Netflix', 'Prime Video'];
@@ -347,19 +353,34 @@ export default function Fred() {
     } finally { setLoading(false); }
   }, []);
 
+  // Auth — Supabase client-side session detection
   useEffect(() => {
-    fetch('/api/auth/session').then(r => r.json()).then(d => {
-      if (d.user) setUser(d.user);
-    }).catch(() => {});
-  }, []);
+    // Get existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+      }
+    });
 
-  useEffect(() => {
-    if (!user) return;
-    fetch('/api/auth/userdata').then(r => r.json()).then(d => {
-      if (d.watched?.length) setWatched(d.watched);
-      if (d.watchlist?.length) setStack(d.watchlist);
-    }).catch(() => {});
-  }, [user]);
+    // Listen for auth changes (magic link click, sign out)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        setShowAuthModal(false);
+        // Sync data from Supabase after login
+        fetch('/api/auth/userdata', {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        }).then(r => r.json()).then(d => {
+          if (d.watched?.length) setWatched(d.watched);
+          if (d.watchlist?.length) setStack(d.watchlist);
+        }).catch(() => {});
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const saved = (() => {
@@ -393,9 +414,13 @@ export default function Fred() {
     setStack(prev => [...prev, entry]);
     try { localStorage.setItem('fred_stack', JSON.stringify([...stack, entry])); } catch {}
     if (user) {
-      fetch('/api/auth/save', { method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ tmdb_id: pick.tmdb_id || pick.id, title: pick.title, type: pick.type, platform: pick.platform, poster: pick.poster })
-      }).catch(console.error);
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) return;
+        fetch('/api/auth/save', { method: 'POST',
+          headers: {'Content-Type':'application/json', 'Authorization': `Bearer ${session.access_token}`},
+          body: JSON.stringify({ tmdb_id: pick.tmdb_id || pick.id, title: pick.title, type: pick.type, platform: pick.platform, poster: pick.poster })
+        }).catch(console.error);
+      });
     }
   }
 
@@ -410,9 +435,13 @@ export default function Fred() {
       return next;
     });
     if (user) {
-      fetch('/api/auth/seen', { method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ tmdb_id: entry.id, title: entry.title, type: entry.type })
-      }).catch(console.error);
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) return;
+        fetch('/api/auth/seen', { method: 'POST',
+          headers: {'Content-Type':'application/json', 'Authorization': `Bearer ${session.access_token}`},
+          body: JSON.stringify({ tmdb_id: entry.id, title: entry.title, type: entry.type })
+        }).catch(console.error);
+      });
     }
   }
 
@@ -468,18 +497,27 @@ export default function Fred() {
     if (!authEmail.trim()) return;
     setAuthLoading(true);
     try {
-      const res = await fetch('/api/auth/magic', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ email: authEmail.trim() }),
+      const { error } = await supabase.auth.signInWithOtp({
+        email: authEmail.trim(),
+        options: {
+          emailRedirectTo: typeof window !== 'undefined'
+            ? window.location.origin
+            : 'https://fred-psi.vercel.app',
+        },
       });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      if (error) throw error;
       setAuthSent(true);
     } catch (e) {
       console.error('Auth error:', e);
+      alert(e.message || 'Could not send magic link');
     } finally {
       setAuthLoading(false);
     }
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    setUser(null);
   }
 
   const [sharingId, setSharingId] = useState(null);
@@ -850,7 +888,7 @@ export default function Fred() {
       <div className={`screen ${screen==='taste'?'active':''}`}>
         <div className="taste-poster">
           <div className="taste-topbar">
-            <div className="taste-logo">Fred{user && <span className="fred-online-dot"/>}</div>
+            <div className="taste-logo">Fred</div>
             <div className="taste-tagline">Your film friend</div>
           </div>
           <div className="taste-headline">FIND<br/>TONIGHT'S<br/>FILM.</div>
@@ -906,10 +944,19 @@ export default function Fred() {
         </div>
         <div className="topbar">
           <div className="topbar-logo" onClick={() => go('taste')}>
-            Fred{user && <span className="fred-online-dot"/>}
+            Fred
           </div>
-          <div className="topbar-right" style={{display:'flex',alignItems:'center',gap:'12px'}}>
-            {user && <span style={{fontSize:'8px',color:'#00c27a',letterSpacing:'.1em',textTransform:'uppercase'}}>● Saved</span>}
+          <div className="topbar-right" style={{display:'flex',alignItems:'center',gap:'10px'}}>
+            {user
+              ? <span onClick={signOut} title={`Sign out (${user.email})`}
+                  style={{fontSize:'9px',color:'#00c27a',letterSpacing:'.08em',textTransform:'uppercase',cursor:'pointer'}}>
+                  ● {user.email?.split('@')[0]}
+                </span>
+              : <span onClick={() => setShowAuthModal(true)}
+                  style={{fontSize:'9px',color:'#444',letterSpacing:'.1em',textTransform:'uppercase',cursor:'pointer'}}>
+                  Sign in
+                </span>
+            }
             <span style={{fontSize:'10px',letterSpacing:'.1em',textTransform:'uppercase',color:'#666'}}>Picks</span>
             <button
               onClick={() => {
@@ -1068,7 +1115,7 @@ export default function Fred() {
       <div className={`screen ${screen==='ask'?'active':''}`} style={{paddingBottom:'130px'}} ref={chatRef}>
         <div className="topbar">
           <div className="topbar-logo" onClick={() => go('taste')}>
-            Fred{user && <span className="fred-online-dot"/>}
+            Fred
           </div>
           <div className="topbar-right">Ask Fred</div>
         </div>
@@ -1120,7 +1167,7 @@ export default function Fred() {
       <div className={`screen ${screen==='search'?'active':''}`} ref={searchRef}>
         <div className="topbar">
           <div className="topbar-logo" onClick={() => go('taste')}>
-            Fred{user && <span className="fred-online-dot"/>}
+            Fred
           </div>
           <div className="topbar-right">Search</div>
         </div>
@@ -1241,7 +1288,7 @@ export default function Fred() {
       <div className={`screen ${screen==='watchlist'?'active':''}`}>
         <div className="topbar">
           <div className="topbar-logo" onClick={() => go('taste')}>
-            Fred{user && <span className="fred-online-dot"/>}
+            Fred
           </div>
           <div className="topbar-right">Watchlist</div>
         </div>
