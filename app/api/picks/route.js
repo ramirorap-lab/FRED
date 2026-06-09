@@ -76,7 +76,8 @@ const AWARDS_DB = {
 const BLOCKLIST = new Set([
   120089, // My Demon
   125987, // Redeeming Love
-  114472, // My Dearest Assassin
+  114472, // My Dearest Assassin (series)
+  1630423,// My Dearest Assassin (2026 film)
   508947, // Turning Red
   438695, // Sing 2
   398978, // The Christmas Chronicles
@@ -216,7 +217,7 @@ async function getDirectorPick(moods, exclude = [], supabase, tmdbToken) {
 
     console.log(`Director pick pool: ${candidates.length} candidates for moods: ${moods.join(',')}`);
 
-    // Pick one, verify it exists on TMDB
+    // Pick one — take first TMDB result, trust the title search
     for (const pick of candidates.slice(0, 20)) {
       try {
         const res = await fetch(
@@ -224,20 +225,12 @@ async function getDirectorPick(moods, exclude = [], supabase, tmdbToken) {
           { headers: { Authorization: `Bearer ${tmdbToken}` } }
         );
         const data2 = await res.json();
-        // Loosen year match to ±3 years, also try first result if title matches well
-        const film = data2.results?.find(f =>
-          Math.abs((f.release_date?.slice(0,4) || 0) - pick.film_year) <= 3
-          && !excludeSet.has(f.id)
-        ) || (data2.results?.[0] && !excludeSet.has(data2.results[0].id) ? data2.results[0] : null);
-
+        const film = data2.results?.find(f => !excludeSet.has(f.id) && !BLOCKLIST.has(f.id));
         if (film) {
-          console.log(`Director pick found: ${pick.film_title} → ${film.title} (${pick.director})`);
           return { ...film, director_name: pick.director, director_quote: pick.quote };
         }
       } catch { continue; }
     }
-
-    console.log('Director pick: no TMDB match found');
     return null;
   } catch (e) {
     console.error('Director pick error:', e);
@@ -342,7 +335,12 @@ async function tmdbDiscover({ genreIds, platforms, exclude, recentOnly, isSeries
   const res  = await fetch(`${endpoint}?${params}`, { headers: { Authorization: `Bearer ${tmdbToken}` } });
   const data = await res.json();
   const excludeSet = new Set(exclude || []);
-  const results = (data.results || []).filter(r => !excludeSet.has(r.id) && !BLOCKLIST.has(r.id));
+  const TITLE_BLOCKLIST = ['my dearest assassin', 'rebel moon', 'my demon', 'redeeming love'];
+  const results = (data.results || []).filter(r =>
+    !excludeSet.has(r.id) &&
+    !BLOCKLIST.has(r.id) &&
+    !TITLE_BLOCKLIST.some(t => (r.title || r.name || '').toLowerCase().includes(t))
+  );
 
   // If platform filter returns too few results, retry without platform constraint
   if (results.length < 8 && params.has('with_watch_providers')) {
