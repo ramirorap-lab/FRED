@@ -272,18 +272,20 @@ async function fetchCuratedDoc(exclude, platforms, tmdbToken) {
       const available = providerIds.length === 0 ||
         flatrate.some(p => providerIds.includes(String(p.provider_id)));
 
-      if (available) return detail;
+      if (available) return { ...detail, _isDoc: true };
     } catch { continue; }
   }
 
-  // Second pass: ignore platform, but still validate it's a documentary
-  for (const id of shuffled.slice(0, 6)) {
+  // Second pass: ignore platform, try all curated IDs
+  for (const id of shuffled) {
     try {
       const res    = await fetch(`https://api.themoviedb.org/3/movie/${id}?language=en-US`,
         { headers: { Authorization: `Bearer ${tmdbToken}` } });
       const detail = await res.json();
       const genreIds = (detail.genres || []).map(g => g.id);
-      if (detail.id && genreIds.includes(99) && !BLOCKLIST.has(detail.id)) return detail;
+      if (detail.id && genreIds.includes(99) && !BLOCKLIST.has(detail.id)) {
+        return { ...detail, _isDoc: true };
+      }
     } catch { continue; }
   }
 
@@ -431,9 +433,10 @@ async function writeFredNote(film, isSeries, apiKey) {
 }
 
 export async function GET(req) {
-  // Only init Supabase if service role key is available
-  const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY
-    ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  // Use service role key if available, fall back to anon key (director_picks is public)
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  const supabase = supabaseKey
+    ? createClient(process.env.SUPABASE_URL, supabaseKey)
     : null;
   const { searchParams } = new URL(req.url);
   const platforms  = (searchParams.get('platforms') || '').split(',').filter(Boolean);
@@ -487,8 +490,8 @@ export async function GET(req) {
     // SLOT 3 — Smart: documentary | Others: recent 2025/2026 only if high quality
     const alreadyHasAnimation = isAnimated(film1);
     let film3 = null;
-    if (smartSolo && docResults?.id) {
-      // For smart: use curated documentary
+    if (smartSolo && docResults?._isDoc) {
+      // For smart: use curated documentary (verified with _isDoc flag)
       film3 = !usedIds.has(docResults.id) ? docResults : null;
     } else {
       // For other moods: only show recent if vote_average >= 7.0 AND vote_count >= 100
@@ -515,7 +518,8 @@ export async function GET(req) {
     const enriched = await Promise.all(slots.map(async (film, i) => {
       const isDirector = film === directorPick;
       const isSeries   = film === series1;
-      const isDoc      = smartSolo && film === film3 && !isDirector && !isSeries;
+      // isDoc only when film3 came from fetchCuratedDoc (has doc_verified flag)
+      const isDoc      = film === film3 && !!film._isDoc;
       const isRecent   = !isDoc && film === film3 && (film.release_date || '').slice(0, 4) >= '2025';
 
       const [details, fredNote] = await Promise.all([
