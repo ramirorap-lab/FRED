@@ -3,10 +3,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+// Lazy init — avoids prerender crash when env vars aren't available
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  );
+}
+const supabase = typeof window !== 'undefined' ? getSupabase() : null;
 
 const TMDB = 'https://image.tmdb.org/t/p/w500';
 const DEFAULT_PLATFORMS = ['Netflix', 'Prime Video'];
@@ -355,11 +359,11 @@ export default function Fred() {
 
   // Auth — Supabase client-side session detection
   useEffect(() => {
+    if (!supabase) return;
+
     // Get existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-      }
+      if (session?.user) setUser(session.user);
     });
 
     // Listen for auth changes (magic link click, sign out)
@@ -367,11 +371,10 @@ export default function Fred() {
       if (session?.user) {
         setUser(session.user);
         setShowAuthModal(false);
-        // Sync data from Supabase after login
         fetch('/api/auth/userdata', {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         }).then(r => r.json()).then(d => {
-          if (d.watched?.length) setWatched(d.watched);
+          if (d.watched?.length)   setWatched(d.watched);
           if (d.watchlist?.length) setStack(d.watchlist);
         }).catch(() => {});
       } else {
@@ -414,7 +417,7 @@ export default function Fred() {
     setStack(prev => [...prev, entry]);
     try { localStorage.setItem('fred_stack', JSON.stringify([...stack, entry])); } catch {}
     if (user) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
+      supabase?.auth.getSession().then(({ data: { session } }) => {
         if (!session) return;
         fetch('/api/auth/save', { method: 'POST',
           headers: {'Content-Type':'application/json', 'Authorization': `Bearer ${session.access_token}`},
@@ -435,7 +438,7 @@ export default function Fred() {
       return next;
     });
     if (user) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
+      supabase?.auth.getSession().then(({ data: { session } }) => {
         if (!session) return;
         fetch('/api/auth/seen', { method: 'POST',
           headers: {'Content-Type':'application/json', 'Authorization': `Bearer ${session.access_token}`},
@@ -494,7 +497,7 @@ export default function Fred() {
   }
 
   async function sendMagicLink() {
-    if (!authEmail.trim()) return;
+    if (!authEmail.trim() || !supabase) return;
     setAuthLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({
@@ -516,7 +519,7 @@ export default function Fred() {
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
+    if (supabase) await supabase.auth.signOut();
     setUser(null);
   }
 
