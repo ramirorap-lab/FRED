@@ -510,7 +510,9 @@ export default function Fred() {
       setAuthSent(true);
     } catch (e) {
       console.error('Auth error:', e);
-      alert(e.message || 'Could not send magic link');
+      // Show inline error instead of alert
+      setAuthSent(false);
+      setAuthLoading(false);
     } finally {
       setAuthLoading(false);
     }
