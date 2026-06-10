@@ -24,28 +24,44 @@ html, body {
 
 /* Desktop — centered fixed-width column */
 @media (min-width: 600px) {
-  html, body { background: #080808; height: 100%; }
-  body { display: flex; justify-content: center; }
-  .app {
-    width: 430px;
-    min-width: 430px;
-    max-width: 430px;
+  html { background: #080808; }
+  body {
+    background: #080808;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
     min-height: 100dvh;
-    box-shadow: 0 0 0 .5px #1a1a1a, 0 0 60px rgba(0,0,0,.8);
+    margin: 0;
+    padding: 0;
+  }
+  #__next {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+  .app {
+    width: 430px !important;
+    min-width: 430px !important;
+    max-width: 430px !important;
+    min-height: 100dvh;
+    box-shadow: 0 0 0 .5px #1a1a1a, 0 0 80px rgba(0,0,0,.9);
     position: relative;
     flex-shrink: 0;
+    margin: 0 auto;
   }
   .nav {
-    left: 50%;
-    transform: translateX(-50%);
-    width: 430px;
-    max-width: 430px;
+    position: fixed;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 430px !important;
+    max-width: 430px !important;
   }
   .chat-bar {
-    left: 50%;
-    transform: translateX(-50%);
-    width: 430px;
-    max-width: 430px;
+    position: fixed;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 430px !important;
+    max-width: 430px !important;
   }
 }
 
