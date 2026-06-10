@@ -92,6 +92,8 @@ html, body {
   background: #E50914;
   padding: 36px 24px 32px;
   flex-shrink: 0;
+  border-radius: 0 0 28px 28px;
+  margin-bottom: 4px;
 }
 .taste-topbar {
   display: flex;
