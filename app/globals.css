@@ -138,8 +138,12 @@ html, body {
 .sec-label {
   font-size: 9px; letter-spacing: .2em;
   text-transform: uppercase; color: var(--dim); margin-bottom: 12px;
+  text-align: center;
 }
-.platform-row { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 28px; }
+.platform-row {
+  display: flex; flex-wrap: wrap; gap: 7px;
+  margin-bottom: 20px; justify-content: center;
+}
 .plat-pill {
   padding: 6px 14px; border: .5px solid #222; border-radius: 20px;
   font-size: 11px; color: #555; cursor: pointer; transition: all .15s;
@@ -147,6 +151,7 @@ html, body {
   font-family: 'Inter', var(--font-body), sans-serif; user-select: none;
 }
 .plat-pill.on { border-color: var(--red); color: #fff; background: rgba(229,9,20,.08); }
+.plat-pill.all-pill { border-style: dashed; }
 .mood-list { display: flex; flex-direction: column; }
 .mood-item {
   display: flex; align-items: center;
@@ -483,29 +488,31 @@ html, body {
 .lb-upload {
   margin-bottom: 14px;
   padding: 0; border: none; background: none;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  flex-wrap: nowrap;
 }
 .lb-label {
   font-family: 'Inter', sans-serif;
   font-size: 10px; font-weight: 500;
   letter-spacing: .06em; color: #333;
-  margin-bottom: 0;
+  margin-bottom: 0; white-space: nowrap;
 }
 .lb-sub { display: none; }
 .lb-btn {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 10px; background: none;
+  padding: 4px 10px; background: none;
   border: .5px solid #222; border-radius: 20px;
   color: #444; font-family: 'Inter', sans-serif;
   font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
-  cursor: pointer; transition: all .15s;
+  cursor: pointer; transition: all .15s; white-space: nowrap;
   -webkit-appearance: none; appearance: none;
 }
 .lb-btn:hover { border-color: #00c27a; color: #00c27a; }
 .lb-btn:disabled { opacity: .5; cursor: not-allowed; }
 .lb-btn svg { width: 11px; height: 11px; flex-shrink: 0; }
-.lb-error { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--red); margin-top: 6px; }
+.lb-error { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--red); margin-top: 6px; text-align: center; }
 .lb-done {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 4px 0; margin-bottom: 12px;
   font-size: 11px; color: #00c27a;
   letter-spacing: .06em; text-transform: uppercase;
