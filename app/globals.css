@@ -786,6 +786,40 @@ html, body {
   color: #555; padding: 4px 0 12px;
 }
 
+/* ── ASK FRED NUDGE ── */
+.ask-nudge {
+  display: flex; align-items: center; gap: 10px;
+  margin: 12px 16px 0;
+  padding: 12px 14px;
+  background: #111;
+  border: .5px solid #222;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color .2s;
+  animation: nudge-in .3s ease;
+}
+.ask-nudge:hover { border-color: #333; }
+@keyframes nudge-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ask-nudge-f {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: #E50914; color: #000;
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 13px; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0;
+}
+.ask-nudge-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px; color: #888; flex: 1; line-height: 1.4;
+}
+.ask-nudge-close {
+  background: none; border: none; color: #333;
+  font-size: 11px; cursor: pointer; padding: 2px 4px;
+  flex-shrink: 0; line-height: 1;
+}
+
 /* ── SHARE BUTTON ── */
 .ca-sharing {
   color: var(--red) !important;
