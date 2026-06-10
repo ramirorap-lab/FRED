@@ -911,6 +911,11 @@ export default function Fred() {
         <div className="taste-bottom">
           <div className="sec-label">Your platforms</div>
           <div className="platform-row">
+            <div
+              className={`plat-pill all-pill ${platforms.length === PLATFORMS.length ? 'on' : ''}`}
+              onClick={() => setPlatforms(platforms.length === PLATFORMS.length ? [] : [...PLATFORMS])}>
+              All
+            </div>
             {PLATFORMS.map(p => (
               <div key={p} className={`plat-pill ${platforms.includes(p)?'on':''}`}
                 onClick={() => togglePlatform(p)}>{p}</div>
