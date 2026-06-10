@@ -123,7 +123,9 @@ async function searchByPerson(name, tmdbToken) {
 
 // ── Step 2: Search TMDB ──
 async function searchTMDB(params, platforms, tmdbToken) {
-  const { genre, genres, year, decade, vibe, exclude_ids = [], is_series = false, sort = 'rating' } = params;
+  const { genre, genres, year, decade, vibe, is_series = false, sort = 'rating' } = params;
+  // Always merge Haiku-extracted excludes with directly tracked shown IDs — prevents repeats
+  const exclude_ids = [...new Set([...(params.exclude_ids || []), ...shownIds])];
 
   // Resolve genre IDs
   let genreIds = [];
@@ -254,25 +256,11 @@ async function writePitch(film, platform, runtime, searchParams, awardBadge, api
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 120,
-      system: `You are Fred, a sharp cinephile. Write EXACTLY 2 sentences. Stop after the second period.
-
-Sentence 1: Why this film fits the request. Mention genre/year/rating naturally. Max 20 words.
-Sentence 2: The one thing that makes it unmissable. Max 20 words.
-
-HARD RULES:
-- ONE film only. Never suggest alternatives.
-- Do NOT mention the title.
-- No "I", no "you might enjoy", no "this film".
-- 2 sentences. Full stop. Nothing after.`,
+      max_tokens: 80,
+      system: `You are Fred. Write ONE punchy sentence (max 18 words) about why this specific film is unmissable tonight. No title. No "I". No plot summary. Just the sharpest possible take. One sentence. End with a period.`,
       messages: [{
         role: 'user',
-        content: `User asked for: ${queryDesc}
-Film: ${film.title || film.name} (${year})
-Rating: ${credibility || 'not available'}
-${awardBadge ? `Awards: ${awardBadge}` : ''}
-Overview: ${film.overview}
-Write the 2-sentence pitch.`,
+        content: `Film: ${film.title || film.name} (${year}), Rating: ${credibility || 'n/a'}, Overview: ${film.overview?.slice(0, 150)}`,
       }],
     }),
   });
@@ -299,6 +287,12 @@ export async function POST(req) {
         ? `${m.text || m.content || ''} [tmdb_id:${m.tmdb_id}]`
         : (m.text || m.content || ''),
     }));
+
+  // Extract all previously shown TMDB IDs directly — don't rely on Haiku
+  const shownIds = conversationHistory
+    .filter(m => m.tmdb_id)
+    .map(m => m.tmdb_id)
+    .filter(Boolean);
 
   const allMessages = [...historyMessages, { role: 'user', content: message }];
 
@@ -357,7 +351,7 @@ export async function POST(req) {
       });
     }
 
-    // Fallback: freeform Haiku — strict 2 sentence max
+    // Fallback: freeform Haiku — 1 sentence max
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
@@ -366,12 +360,12 @@ export async function POST(req) {
         system: `You are Fred, a sharp cinephile.
 RULES — no exceptions:
 - Recommend ONE film. Never two. Never "or if you want".
-- EXACTLY 2 sentences. Stop after the second period.
+- EXACTLY 1 sentence. Max 18 words. Stop after the period.
 - End with the title name naturally in the text.
 - No filler, no "I", no plot summaries.
 - If you don't know a real title that fits, say "Nothing comes to mind — try asking for a specific genre."
 
-FORMAT: [2 sentence pitch with title at the end.]
+FORMAT: [1 sentence pitch] [Title] | [Platform] | [runtime if known]
 → TITLE | PLATFORM | RUNTIME`,
         messages: allMessages,
       }),
