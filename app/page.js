@@ -316,6 +316,8 @@ export default function Fred() {
   const [authLoading,   setAuthLoading]   = useState(false);
   const chatRef       = useRef(null);
   const seenPickIds   = useRef(new Set()); // accumulates all shown pick IDs across refreshes
+  const [refreshCount, setRefreshCount] = useState(0);
+  const [showAskNudge, setShowAskNudge] = useState(false);
   const searchRef    = useRef(null);
   const [searchQuery,   setSearchQuery]   = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -342,13 +344,17 @@ export default function Fred() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       const newPicks = data.picks || [];
-      // Track shown IDs — cap at 8 so we never exhaust TMDB results
       newPicks.forEach(p => seenPickIds.current.add(p.tmdb_id || p.id));
       if (seenPickIds.current.size > 8) {
         const arr = [...seenPickIds.current];
         seenPickIds.current = new Set(arr.slice(-8));
       }
       setPicks(newPicks);
+      setRefreshCount(c => {
+        const next = c + 1;
+        if (next === 3) setShowAskNudge(true);
+        return next;
+      });
     } catch (e) {
       setError(e.message || "Fred couldn't connect. Try again.");
     } finally { setLoading(false); }
@@ -403,6 +409,8 @@ export default function Fred() {
     }
     // Reset seen IDs on fresh search — new mood/platform = new slate
     seenPickIds.current = new Set();
+    setRefreshCount(0);
+    setShowAskNudge(false);
     go('tonight');
     fetchPicks(platforms, moods, tasteProfile, watched);
   }
@@ -999,6 +1007,13 @@ export default function Fred() {
             </button>
           </div>
         </div>
+        {showAskNudge && (
+          <div className="ask-nudge" onClick={() => { setShowAskNudge(false); go('ask'); }}>
+            <span className="ask-nudge-f">F</span>
+            <span className="ask-nudge-text">Still not it? Tell me exactly what you're after.</span>
+            <button className="ask-nudge-close" onClick={e => { e.stopPropagation(); setShowAskNudge(false); }}>✕</button>
+          </div>
+        )}
         <div className="tonight-mood-header">
           <div className="tonight-mood-label">
             {moods.length > 0
